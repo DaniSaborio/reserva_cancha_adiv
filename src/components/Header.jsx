@@ -39,6 +39,11 @@ export default function Header() {
       document.body.classList.add('high-contrast');
     }
 
+    // OWASP A02/A05: Registro seguro del Service Worker desde cliente sin usar dangerouslySetInnerHTML
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -82,7 +87,7 @@ export default function Header() {
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline-flex items-center gap-1 text-emerald-300">
               <FaBolt className="w-3 h-3" />
-              <span>Cloudflare Edge D1 · 0% Colisiones</span>
+              <span>Cloudflare Edge D1 · OWASP 2025</span>
             </span>
             <button
               onClick={toggleFont}
