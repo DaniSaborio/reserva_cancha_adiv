@@ -81,8 +81,8 @@ export default function VoucherClient({ initialCodigo = '' }) {
 
   return (
     <div className="space-y-6">
-      {/* Barra de progreso en 3 pasos (Paso 3: Comprobante completado) */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-3 gap-2 no-print">
+      {/* Barra de progreso en 3 pasos centrada (Paso 3: Comprobante completado) */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-3 gap-2 text-center no-print">
         <div className="space-y-1">
           <div className="h-1.5 rounded-full bg-emerald-500" />
           <p className="text-xs font-bold text-emerald-700">1 · Horario</p>
@@ -97,16 +97,16 @@ export default function VoucherClient({ initialCodigo = '' }) {
         </div>
       </div>
 
-      {/* Selector de Variante de Comprobante (UI-05 SINPE Móvil vs UI-06 Efectivo) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 no-print">
+      {/* Selector de Variante de Comprobante centrado (UI-05 SINPE Móvil vs UI-06 Efectivo) */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 no-print">
         <span className="text-xs font-bold text-slate-500">
           Modalidad de comprobante (Paso 3):
         </span>
-        <div className="inline-flex p-1 rounded-full bg-white border border-slate-200">
+        <div className="inline-flex items-center justify-center p-1 rounded-full bg-white border border-slate-200">
           <button
             type="button"
             onClick={() => setVarianteVista('SINPE Móvil')}
-            className={`px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               varianteVista === 'SINPE Móvil'
                 ? 'bg-emerald-100 text-cancha-900 border border-emerald-300'
                 : 'text-slate-600 hover:text-slate-900'
@@ -118,7 +118,7 @@ export default function VoucherClient({ initialCodigo = '' }) {
           <button
             type="button"
             onClick={() => setVarianteVista('Efectivo')}
-            className={`px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               varianteVista === 'Efectivo'
                 ? 'bg-amber-100 text-amber-900 border border-amber-300'
                 : 'text-slate-600 hover:text-slate-900'

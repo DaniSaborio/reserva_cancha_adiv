@@ -119,8 +119,8 @@ function ReservarFormContent() {
         </span>
       </div>
 
-      {/* Barra de progreso en 3 pasos */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-3 gap-2">
+      {/* Barra de progreso en 3 pasos centrada */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-3 gap-2 text-center">
         <div className="space-y-1">
           <div className="h-1.5 rounded-full bg-emerald-500" />
           <p className="text-xs font-bold text-emerald-700">1 · Horario</p>

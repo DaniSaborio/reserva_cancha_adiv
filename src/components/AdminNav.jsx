@@ -89,15 +89,15 @@ export default function AdminNav({ subtituloFecha = 'Viernes 06/11/2026', onRese
         </div>
       </div>
 
-      {/* Pestañas estilo P12_CanchaApp.png (UI-24) */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
+      {/* Pestañas centradas estilo P12_CanchaApp.png (UI-24) */}
+      <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              className={`inline-flex items-center justify-center gap-1.5 min-w-[7rem] px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
                 tab.active
                   ? 'bg-emerald-50 text-cancha-900 border-emerald-300 shadow-2xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'

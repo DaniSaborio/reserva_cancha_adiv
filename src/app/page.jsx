@@ -136,8 +136,8 @@ export default function HomePage() {
     <div className="space-y-6">
       {/* Contenedor Principal estilo tarjeta móvil/desktop de Wireframes UI-01 / UI-02 / UI-03 */}
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
-        {/* Encabezado dinámico según la vista (UI-01, UI-02, UI-03) */}
-        <div className="space-y-1.5">
+        {/* Encabezado dinámico centrado según la vista (UI-01, UI-02, UI-03) */}
+        <div className="space-y-1.5 text-center">
           {vista === 'dia' && (
             <>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -166,8 +166,8 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Barra de Progreso en 3 Pasos (Paso 1: Horario · Paso 2: Contacto · Paso 3: Comprobante) */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
+        {/* Barra de Progreso en 3 Pasos centrada (Paso 1: Horario · Paso 2: Contacto · Paso 3: Comprobante) */}
+        <div className="grid grid-cols-3 gap-2 pt-1 max-w-lg mx-auto w-full text-center">
           <div className="space-y-1.5">
             <div className="h-1.5 rounded-full bg-cancha-800" />
             <p className="text-xs font-bold text-cancha-900">1 · Horario</p>
@@ -182,9 +182,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Selector Temporal: Pestañas Día, Semana y Mes + Accesos rápidos de Fecha */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center p-1 rounded-full bg-slate-100 border border-slate-200">
+        {/* Selector Temporal Centrado: Pestañas Día, Semana y Mes + Accesos rápidos de Fecha */}
+        <div className="flex flex-col items-center justify-center gap-3 pt-1">
+          <div
+            role="tablist"
+            aria-label="Seleccionar vista de calendario (Día, Semana o Mes)"
+            className="inline-flex items-center justify-center p-1.5 rounded-full bg-slate-100 border border-slate-200 shadow-inner w-full max-w-md sm:w-auto mx-auto"
+          >
             {[
               { id: 'dia', label: 'Día' },
               { id: 'semana', label: 'Semana' },
@@ -192,8 +196,10 @@ export default function HomePage() {
             ].map((tab) => (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={vista === tab.id}
                 onClick={() => setVista(tab.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial min-w-[6rem] sm:min-w-[7.25rem] px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold text-center transition-all ${
                   vista === tab.id
                     ? 'bg-emerald-100 text-cancha-900 shadow-2xs border border-emerald-300/80'
                     : 'text-slate-600 hover:text-slate-900'
@@ -204,10 +210,10 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
             <button
               onClick={() => setFechaSeleccionada('2026-11-06')}
-              className={`px-3 py-1.5 rounded-xl font-bold border transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl font-bold border transition-colors ${
                 fechaSeleccionada === '2026-11-06'
                   ? 'bg-cancha-900 text-white border-cancha-900'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -217,7 +223,7 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => setFechaSeleccionada('2026-11-07')}
-              className={`px-3 py-1.5 rounded-xl font-bold border transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl font-bold border transition-colors ${
                 fechaSeleccionada === '2026-11-07'
                   ? 'bg-cancha-900 text-white border-cancha-900'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -233,10 +239,10 @@ export default function HomePage() {
         {/* =================================================================== */}
         {vista === 'dia' && (
           <div className="space-y-5">
-            {/* Navegador de fecha */}
+            {/* Navegador de fecha centrado */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2.5">
+                <div className="flex items-center justify-center gap-2.5">
                   <button
                     onClick={() => cambiarDia(-1)}
                     className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
@@ -244,7 +250,7 @@ export default function HomePage() {
                   >
                     <FaChevronLeft className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-sm sm:text-base font-extrabold text-slate-900 capitalize">
+                  <span className="text-sm sm:text-base font-extrabold text-slate-900 capitalize min-w-[11.5rem] text-center">
                     {formatFechaLarga(fechaSeleccionada)}
                   </span>
                   <button
@@ -256,7 +262,7 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                <span className="text-xs font-bold text-cancha-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <span className="text-xs font-bold text-cancha-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                   {horasLibresHoy} {horasLibresHoy === 1 ? 'hora libre' : 'horas libres'}
                 </span>
               </div>
@@ -394,7 +400,7 @@ export default function HomePage() {
                 <FaChevronLeft className="w-3 h-3" />
                 <span>Semana ant.</span>
               </button>
-              <span className="text-xs sm:text-sm font-extrabold text-slate-900">
+              <span className="text-xs sm:text-sm font-extrabold text-slate-900 text-center">
                 {MESES_TITULO[mesActualIdx]} {anioActual} · {lunesSemana.getDate()}–{domingoSemana.getDate()}
               </span>
               <button
@@ -557,25 +563,23 @@ export default function HomePage() {
             {/* Cuadrícula mensual */}
             <div className="rounded-2xl border border-slate-200 p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                <button
+                  onClick={() => cambiarMes(-1)}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  aria-label="Mes anterior"
+                >
+                  <FaChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-sm sm:text-base font-extrabold text-slate-900 text-center">
                   {MESES_TITULO[mesActualIdx]} {anioActual}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => cambiarMes(-1)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    aria-label="Mes anterior"
-                  >
-                    <FaChevronLeft className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => cambiarMes(1)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    aria-label="Mes siguiente"
-                  >
-                    <FaChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => cambiarMes(1)}
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  aria-label="Mes siguiente"
+                >
+                  <FaChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400">
@@ -620,7 +624,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5 text-center">
               <span className="w-2 h-2 rounded-full bg-cancha-800 inline-block" />
               <span>Día seleccionado · Abrí un día para ver sus horas.</span>
             </p>
@@ -680,9 +684,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Leyenda de estados en tiempo real (presente en UI-01, UI-02 y UI-03) */}
+        {/* Leyenda de estados en tiempo real centrada (presente en UI-01, UI-02 y UI-03) */}
         <div className="pt-2 border-t border-slate-100 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
               <FaRegCircle className="w-3 h-3" />
               <span>Libre</span>
@@ -701,10 +705,10 @@ export default function HomePage() {
             </span>
           </div>
 
-          <p className="text-xs text-slate-500 leading-relaxed flex items-start gap-2">
+          <p className="text-xs text-slate-500 leading-relaxed flex items-start justify-center gap-2 text-center max-w-2xl mx-auto">
             <FaShieldHalved className="w-4 h-4 text-cancha-700 shrink-0 mt-0.5" />
             <span>
-              Una reserva pendiente también ocupa el horario al instante para evitar choques de equipos. Tus datos personales (nombre y teléfono) nunca se muestran en el calendario público.
+              Una reserva pendiente también ocupa el horario al instante para evitar choques de equipos. Tus datos personales (nombre y teléfono) nunca se muestran en el calendario público (OWASP A01/A04).
             </span>
           </p>
 
