@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import { AgendaManager, AuthMiddleware } from '@/lib/services';
 import { formatFechaCorta, formatDDMMYYYY } from '@/lib/utils';
@@ -10,7 +11,8 @@ import {
   FaTrashCan,
   FaCircleCheck,
   FaCircleExclamation,
-  FaCalendarXmark
+  FaCalendarXmark,
+  FaUserShield
 } from 'react-icons/fa6';
 
 const FRANJAS_HORAS = [
@@ -32,6 +34,8 @@ const MOTIVOS_FRECUENTES = [
 ];
 
 export default function AdminBloqueosPage() {
+  const [session, setSession] = useState(null);
+  const [mounted, setMounted] = useState(false);
   const [bloqueos, setBloqueos] = useState([]);
   const [fecha, setFecha] = useState('2026-11-06');
   const [horaInicio, setHoraInicio] = useState('16:00');
@@ -41,18 +45,65 @@ export default function AdminBloqueosPage() {
   const [mensajeError, setMensajeError] = useState('');
 
   const cargarBloqueos = useCallback(() => {
-    if (!AuthMiddleware.verificarToken()) {
-      AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-    }
+    const ses = AuthMiddleware.verificarToken();
+    setSession(ses);
+    if (!ses) return;
     setBloqueos(AgendaManager.listarBloqueos());
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     cargarBloqueos();
     const handleUpdate = () => cargarBloqueos();
     window.addEventListener('cancha-db-updated', handleUpdate);
-    return () => window.removeEventListener('cancha-db-updated', handleUpdate);
+    window.addEventListener('cancha-auth-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('cancha-db-updated', handleUpdate);
+      window.removeEventListener('cancha-auth-updated', handleUpdate);
+    };
   }, [cargarBloqueos]);
+
+  if (!mounted) {
+    return (
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 text-center text-sm font-semibold text-slate-500">
+        Verificando sesión administrativa...
+      </div>
+    );
+  }
+
+  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-cancha-900 text-emerald-300 flex items-center justify-center mx-auto">
+          <FaUserShield className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-extrabold text-slate-900">
+          Sesión Administrativa Requerida
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600">
+          El módulo de bloqueos de mantenimiento requiere autenticación activa (OWASP A01:2025).
+        </p>
+        <div className="space-y-2.5 pt-2">
+          <button
+            onClick={() => {
+              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
+              cargarBloqueos();
+            }}
+            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
+          >
+            Entrar como Carlos Pérez (Encargado ADI)
+          </button>
+          <Link
+            href="/admin/login/"
+            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+          >
+            Ir al formulario de inicio de sesión (/admin/login)
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleCrearBloqueo = (e) => {
     e.preventDefault();

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import {
   DashboardController,
@@ -13,18 +14,20 @@ import {
   FaCheck,
   FaClock,
   FaBan,
-  FaCalendarPlus,
   FaMagnifyingGlass,
   FaMobileScreenButton,
   FaMoneyBillWave,
   FaArrowsRotate,
   FaCircleCheck,
-  FaCircleExclamation
+  FaCircleExclamation,
+  FaUserShield
 } from 'react-icons/fa6';
 
 const HORAS_DISPONIBLES = ['16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
 
 export default function AdminReservasPage() {
+  const [session, setSession] = useState(null);
+  const [mounted, setMounted] = useState(false);
   const [reservas, setReservas] = useState([]);
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
   const [metodoFiltro, setMetodoFiltro] = useState('Todos');
@@ -50,9 +53,10 @@ export default function AdminReservasPage() {
   const [mensajeError, setMensajeError] = useState('');
 
   const cargarReservas = useCallback(() => {
-    if (!AuthMiddleware.verificarToken()) {
-      AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-    }
+    const ses = AuthMiddleware.verificarToken();
+    setSession(ses);
+    if (!ses) return;
+
     const lista = DashboardController.listarReservasRecientes({
       estado: estadoFiltro,
       metodo: metodoFiltro,
@@ -62,11 +66,58 @@ export default function AdminReservasPage() {
   }, [estadoFiltro, metodoFiltro, busqueda]);
 
   useEffect(() => {
+    setMounted(true);
     cargarReservas();
     const handleUpdate = () => cargarReservas();
     window.addEventListener('cancha-db-updated', handleUpdate);
-    return () => window.removeEventListener('cancha-db-updated', handleUpdate);
+    window.addEventListener('cancha-auth-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('cancha-db-updated', handleUpdate);
+      window.removeEventListener('cancha-auth-updated', handleUpdate);
+    };
   }, [cargarReservas]);
+
+  if (!mounted) {
+    return (
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 text-center text-sm font-semibold text-slate-500">
+        Verificando sesión administrativa...
+      </div>
+    );
+  }
+
+  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-cancha-900 text-emerald-300 flex items-center justify-center mx-auto">
+          <FaUserShield className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-extrabold text-slate-900">
+          Sesión Administrativa Requerida
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600">
+          El módulo de reservas y cobros requiere autenticación activa (OWASP A01:2025 / A07:2025).
+        </p>
+        <div className="space-y-2.5 pt-2">
+          <button
+            onClick={() => {
+              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
+              cargarReservas();
+            }}
+            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
+          >
+            Entrar como Carlos Pérez (Encargado ADI)
+          </button>
+          <Link
+            href="/admin/login/"
+            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+          >
+            Ir al formulario de inicio de sesión (/admin/login)
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleConfirmarPago = (e) => {
     e.preventDefault();

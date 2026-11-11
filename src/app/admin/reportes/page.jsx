@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import {
   DashboardController,
@@ -15,19 +16,22 @@ import {
   FaMobileScreenButton,
   FaMoneyBillWave,
   FaCoins,
-  FaClock
+  FaClock,
+  FaUserShield
 } from 'react-icons/fa6';
 
 export default function AdminReportesPage() {
+  const [session, setSession] = useState(null);
+  const [mounted, setMounted] = useState(false);
   const [desde, setDesde] = useState('2026-11-01');
   const [hasta, setHasta] = useState('2026-11-30');
   const [balance, setBalance] = useState(null);
   const [registros, setRegistros] = useState([]);
 
   const calcularReporte = useCallback(() => {
-    if (!AuthMiddleware.verificarToken()) {
-      AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-    }
+    const ses = AuthMiddleware.verificarToken();
+    setSession(ses);
+    if (!ses) return;
     const bal = PagoService.calcularBalance(desde, hasta);
     setBalance(bal);
     const lista = DashboardController.listarReservasRecientes({ desde, hasta });
@@ -35,11 +39,58 @@ export default function AdminReportesPage() {
   }, [desde, hasta]);
 
   useEffect(() => {
+    setMounted(true);
     calcularReporte();
     const handleUpdate = () => calcularReporte();
     window.addEventListener('cancha-db-updated', handleUpdate);
-    return () => window.removeEventListener('cancha-db-updated', handleUpdate);
+    window.addEventListener('cancha-auth-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('cancha-db-updated', handleUpdate);
+      window.removeEventListener('cancha-auth-updated', handleUpdate);
+    };
   }, [calcularReporte]);
+
+  if (!mounted) {
+    return (
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 text-center text-sm font-semibold text-slate-500">
+        Verificando sesión administrativa...
+      </div>
+    );
+  }
+
+  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-cancha-900 text-emerald-300 flex items-center justify-center mx-auto">
+          <FaUserShield className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-extrabold text-slate-900">
+          Sesión Administrativa Requerida
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600">
+          La exportación de reportes contables requiere autenticación activa (OWASP A01:2025).
+        </p>
+        <div className="space-y-2.5 pt-2">
+          <button
+            onClick={() => {
+              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
+              calcularReporte();
+            }}
+            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
+          >
+            Entrar como Carlos Pérez (Encargado ADI)
+          </button>
+          <Link
+            href="/admin/login/"
+            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+          >
+            Ir al formulario de inicio de sesión (/admin/login)
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleDescargarCSV = () => {
     const csvContent = DashboardController.exportarReporteCSV({ desde, hasta });
@@ -94,22 +145,22 @@ export default function AdminReportesPage() {
 
       {/* Selector de Rango de Fechas (HU-10) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3 no-print">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <h2 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center justify-center gap-2">
             <FaCalendarDays className="w-4 h-4 text-cancha-700" />
-            <span>Filtrar ingresos y reservas por periodo:</span>
+            <span>Filtrar ingresos y reservas por periodo (Día, Semana o Mes):</span>
           </h2>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setDesde('2026-11-06');
                 setHasta('2026-11-06');
               }}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 border border-slate-200 transition-colors"
             >
-              Viernes 06/11
+              Día · Viernes 06/11
             </button>
             <button
               type="button"
@@ -117,9 +168,9 @@ export default function AdminReportesPage() {
                 setDesde('2026-11-02');
                 setHasta('2026-11-08');
               }}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 border border-slate-200 transition-colors"
             >
-              Semana 02/11 al 08/11
+              Semana · 02/11 al 08/11
             </button>
             <button
               type="button"
@@ -127,9 +178,9 @@ export default function AdminReportesPage() {
                 setDesde('2026-11-01');
                 setHasta('2026-11-30');
               }}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-cancha-900"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-cancha-900 border border-emerald-300 transition-colors"
             >
-              Noviembre 2026 Completo
+              Mes · Noviembre 2026
             </button>
           </div>
         </div>
