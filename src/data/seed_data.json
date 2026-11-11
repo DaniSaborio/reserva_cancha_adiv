@@ -1,0 +1,166 @@
+{
+  "cancha": {
+    "id": 1,
+    "nombre": "Cancha Sintética Comunal — ADI Venecia",
+    "nombre_corto": "Sintética comunal",
+    "organizacion": "Asociación de Desarrollo Integral de Venecia",
+    "ubicacion": "Venecia de San Carlos, Alajuela, Costa Rica (Contiguo al Salón Comunal)",
+    "tarifa_hora": 16000,
+    "sinpe_oficial": "8888-9999",
+    "sinpe_titular": "Asociación de Desarrollo Integral de Venecia (ADI Venecia)",
+    "telefono_encargado": "2472-8000",
+    "horario_apertura": "16:00",
+    "horario_cierre": "23:00"
+  },
+  "franjas_oficiales": [
+    { "hora_inicio": "16:00", "hora_fin": "17:00", "label": "16:00–17:00", "precio": 16000 },
+    { "hora_inicio": "17:00", "hora_fin": "18:00", "label": "17:00–18:00", "precio": 16000 },
+    { "hora_inicio": "18:00", "hora_fin": "19:00", "label": "18:00–19:00", "precio": 16000 },
+    { "hora_inicio": "19:00", "hora_fin": "20:00", "label": "19:00–20:00", "precio": 16000 },
+    { "hora_inicio": "20:00", "hora_fin": "21:00", "label": "20:00–21:00", "precio": 16000 },
+    { "hora_inicio": "21:00", "hora_fin": "22:00", "label": "21:00–22:00", "precio": 16000 },
+    { "hora_inicio": "22:00", "hora_fin": "23:00", "label": "22:00–23:00", "precio": 16000 }
+  ],
+  "usuarios_admin": [
+    {
+      "id": 1,
+      "username": "admin",
+      "nombre": "Carlos Pérez (Encargado)",
+      "cargo": "Coordinación Cancha",
+      "email": "admin@canchavenecia.cr",
+      "rol": "Administrador",
+      "activo": 1
+    },
+    {
+      "id": 2,
+      "username": "tesoreria",
+      "nombre": "Marta Soto (Tesorera)",
+      "cargo": "Fiscalía Deportiva",
+      "email": "tesoreria@canchavenecia.cr",
+      "rol": "Tesorero",
+      "activo": 1
+    }
+  ],
+  "reservas": [
+    {
+      "id": 1,
+      "codigo_reserva": "CAN-2026-01",
+      "cancha_id": 1,
+      "cliente_nombre": "Mario Solís Alvarado",
+      "cliente_telefono": "8888-1122",
+      "fecha_reserva": "2026-11-06",
+      "hora_inicio": "18:00",
+      "hora_fin": "19:00",
+      "metodo_pago_previsto": "SINPE Móvil",
+      "estado": "Confirmada",
+      "monto_total": 16000,
+      "created_at": "2026-11-06T16:35:00Z"
+    },
+    {
+      "id": 2,
+      "codigo_reserva": "CAN-2026-02",
+      "cancha_id": 1,
+      "cliente_nombre": "Equipo Los Amigos FC",
+      "cliente_telefono": "8755-4433",
+      "fecha_reserva": "2026-11-06",
+      "hora_inicio": "19:00",
+      "hora_fin": "20:00",
+      "metodo_pago_previsto": "Efectivo",
+      "estado": "Confirmada",
+      "monto_total": 16000,
+      "created_at": "2026-11-06T17:10:00Z"
+    },
+    {
+      "id": 3,
+      "codigo_reserva": "CAN-2026-03",
+      "cancha_id": 1,
+      "cliente_nombre": "Carlos Murillo Castro",
+      "cliente_telefono": "8911-2233",
+      "fecha_reserva": "2026-11-06",
+      "hora_inicio": "20:00",
+      "hora_fin": "21:00",
+      "metodo_pago_previsto": "SINPE Móvil",
+      "estado": "Pendiente",
+      "monto_total": 16000,
+      "created_at": "2026-11-06T18:05:00Z"
+    },
+    {
+      "id": 4,
+      "codigo_reserva": "CAN-2026-04",
+      "cancha_id": 1,
+      "cliente_nombre": "Deportivo La Palmera",
+      "cliente_telefono": "8344-5566",
+      "fecha_reserva": "2026-11-07",
+      "hora_inicio": "17:00",
+      "hora_fin": "18:00",
+      "metodo_pago_previsto": "SINPE Móvil",
+      "estado": "Confirmada",
+      "monto_total": 16000,
+      "created_at": "2026-11-06T19:00:00Z"
+    },
+    {
+      "id": 5,
+      "codigo_reserva": "CAN-2026-05",
+      "cancha_id": 1,
+      "cliente_nombre": "Asociación Veteranos",
+      "cliente_telefono": "8822-9900",
+      "fecha_reserva": "2026-11-07",
+      "hora_inicio": "18:00",
+      "hora_fin": "19:00",
+      "metodo_pago_previsto": "Efectivo",
+      "estado": "Confirmada",
+      "monto_total": 16000,
+      "created_at": "2026-11-06T19:20:00Z"
+    }
+  ],
+  "pagos": [
+    {
+      "id": 1,
+      "reserva_id": 1,
+      "metodo_pago": "SINPE Móvil",
+      "monto": 16000,
+      "numero_comprobante": "SINPE-98421",
+      "registrado_por": "Carlos Pérez (Encargado)",
+      "fecha_pago": "2026-11-06T16:40:00Z"
+    },
+    {
+      "id": 2,
+      "reserva_id": 2,
+      "metodo_pago": "Efectivo",
+      "monto": 16000,
+      "numero_comprobante": null,
+      "registrado_por": "Carlos Pérez (Encargado)",
+      "fecha_pago": "2026-11-06T18:50:00Z"
+    },
+    {
+      "id": 3,
+      "reserva_id": 4,
+      "metodo_pago": "SINPE Móvil",
+      "monto": 16000,
+      "numero_comprobante": "SINPE-77123",
+      "registrado_por": "Marta Soto (Tesorera)",
+      "fecha_pago": "2026-11-07T15:20:00Z"
+    },
+    {
+      "id": 4,
+      "reserva_id": 5,
+      "metodo_pago": "Efectivo",
+      "monto": 16000,
+      "numero_comprobante": null,
+      "registrado_por": "Carlos Pérez (Encargado)",
+      "fecha_pago": "2026-11-07T17:55:00Z"
+    }
+  ],
+  "bloqueos_horario": [
+    {
+      "id": 1,
+      "cancha_id": 1,
+      "fecha": "2026-11-12",
+      "hora_inicio": "16:00",
+      "hora_fin": "17:00",
+      "motivo": "Mantenimiento de césped sintético y demarcación",
+      "usuario_id": 1,
+      "created_at": "2026-11-05T10:00:00Z"
+    }
+  ]
+}
