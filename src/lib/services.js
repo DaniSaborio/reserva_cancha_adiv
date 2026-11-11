@@ -1,9 +1,25 @@
 // =============================================================================
 // Implementación del Diagrama de Clases UML del Dominio (Sección 12.1)
 // Clases: ReservaService, PagoService, AgendaManager, DashboardController, AuthMiddleware
+// Blindado bajo lineamientos OWASP Top 10:2025 + Controles Básicos de Seguridad Web
 // =============================================================================
 
 import { CanchaDB } from './db';
+import {
+  secureRandomInt,
+  timingSafeEqualStr,
+  computeIntegritySignature,
+  sanitizeText,
+  sanitizeCSVCell,
+  sanitizeComprobante,
+  isValidFechaISO,
+  isValidHoraOficial,
+  isValidTelefonoCR,
+  RateLimiter,
+  LoginBruteForceGuard,
+  SecurityAuditLogger,
+  TARIFA_OFICIAL_CRC
+} from './security';
 
 /**
  * «Service» ReservaService
@@ -13,20 +29,21 @@ import { CanchaDB } from './db';
 export class ReservaService {
   static verificarDisponibilidad(fecha) {
     const db = CanchaDB.load();
+    const fechaSegura = isValidFechaISO(fecha) ? fecha : '2026-11-06';
     const reservasFecha = db.reservas.filter(
-      (r) => r.fecha_reserva === fecha && r.estado !== 'Cancelada'
+      (r) => r.fecha_reserva === fechaSegura && r.estado !== 'Cancelada'
     );
-    const bloqueosFecha = db.bloqueos_horario.filter((b) => b.fecha === fecha);
+    const bloqueosFecha = db.bloqueos_horario.filter((b) => b.fecha === fechaSegura);
 
     return db.franjas_oficiales.map((franja) => {
       const bloqueo = bloqueosFecha.find((b) => b.hora_inicio === franja.hora_inicio);
       if (bloqueo) {
         return {
           ...franja,
-          fecha,
+          fecha: fechaSegura,
           estado: 'Mantenimiento',
           disponible: false,
-          motivo_bloqueo: bloqueo.motivo,
+          motivo_bloqueo: sanitizeText(bloqueo.motivo, 120),
           bloqueo_id: bloqueo.id
         };
       }
@@ -36,7 +53,7 @@ export class ReservaService {
         const esConfirmada = reserva.estado === 'Confirmada';
         return {
           ...franja,
-          fecha,
+          fecha: fechaSegura,
           estado: esConfirmada ? 'Ocupado' : 'En proceso',
           disponible: false,
           reserva_estado: reserva.estado
@@ -45,7 +62,7 @@ export class ReservaService {
 
       return {
         ...franja,
-        fecha,
+        fecha: fechaSegura,
         estado: 'Libre',
         disponible: true
       };
@@ -58,18 +75,34 @@ export class ReservaService {
   }
 
   /**
-   * Crea una reserva aplicando validación transaccional atómica anti-colisión
+   * Crea una reserva aplicando validación transaccional atómica anti-colisión,
+   * sanitización anti-XSS (A05:2025) y Rate Limiting anti-abuso (A06:2025).
    * Restricción: UNIQUE(cancha_id, fecha_reserva, hora_inicio)
    */
   static crearReserva(dto) {
-    const { nombre, telefono, fecha, hora_inicio, metodo_pago } = dto || {};
+    // A06:2025 - Rate Limiting para evitar acaparamiento automatizado de horarios
+    const rate = RateLimiter.checkAndRecord('crear_reserva', 6, 60 * 1000);
+    if (!rate.allowed) {
+      return {
+        ok: false,
+        status: 429,
+        error: `Demasiadas solicitudes seguidas. Por seguridad esperá ${rate.retryAfterSec} segundos antes de intentar otra reserva.`
+      };
+    }
 
-    if (!nombre || !nombre.trim()) {
-      return { ok: false, status: 400, error: 'Por favor ingresá tu nombre o el nombre de tu equipo.' };
+    const { nombre, telefono, fecha, hora_inicio, metodo_pago } = dto || {};
+    const nombreSanitizado = sanitizeText(nombre, 80);
+
+    if (!nombreSanitizado || nombreSanitizado.length < 2) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Por favor ingresá un nombre válido (o el nombre de tu equipo).'
+      };
     }
 
     const telLimpio = String(telefono || '').replace(/[^\d]/g, '');
-    if (telLimpio.length < 8) {
+    if (!isValidTelefonoCR(telLimpio)) {
       return {
         ok: false,
         status: 400,
@@ -77,8 +110,12 @@ export class ReservaService {
       };
     }
 
-    if (!fecha || !hora_inicio) {
-      return { ok: false, status: 400, error: 'Debés seleccionar una fecha y una franja horaria.' };
+    if (!isValidFechaISO(fecha) || !isValidHoraOficial(hora_inicio)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Debés seleccionar una fecha válida (YYYY-MM-DD) y una franja horaria oficial (16:00 a 22:00).'
+      };
     }
 
     const db = CanchaDB.load();
@@ -93,7 +130,7 @@ export class ReservaService {
         status: 409,
         code: 'COLLISION',
         error: 'Horario en mantenimiento',
-        message: `Esta franja fue inhabilitada por: ${bloqueoExistente.motivo}.`,
+        message: `Esta franja fue inhabilitada por: ${sanitizeText(bloqueoExistente.motivo, 100)}.`,
         alternativas: this.obtenerAlternativasDisponibles(fecha, hora_inicio)
       };
     }
@@ -121,30 +158,40 @@ export class ReservaService {
     const hora_fin = `${String(horaNum + 1).padStart(2, '0')}:00`;
     const telFormateado = `${telLimpio.slice(0, 4)}-${telLimpio.slice(4, 8)}`;
 
+    // A04:2025 - Uso de CSPRNG en lugar de Math.random()
     const seq = db.nextReservaSeq || db.reservas.length + 1;
     let codigo_reserva = `CAN-2026-${String(seq).padStart(2, '0')}`;
     while (db.reservas.some((r) => r.codigo_reserva === codigo_reserva)) {
-      codigo_reserva = `CAN-2026-${String(Math.floor(10 + Math.random() * 89))}`;
+      codigo_reserva = `CAN-2026-${String(secureRandomInt(10, 99))}`;
     }
 
+    // A08:2025 - Integridad de datos: el monto siempre proviene de la tarifa oficial del servidor/DB
+    const tarifaSegura = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
+
     const nuevaReserva = {
-      id: Date.now(),
+      id: Date.now() * 100 + secureRandomInt(10, 99),
       codigo_reserva,
       cancha_id: 1,
-      cliente_nombre: nombre.trim(),
+      cliente_nombre: nombreSanitizado,
       cliente_telefono: telFormateado,
       fecha_reserva: fecha,
       hora_inicio,
       hora_fin,
       metodo_pago_previsto: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil',
       estado: 'Pendiente',
-      monto_total: db.cancha.tarifa_hora || 16000,
+      monto_total: tarifaSegura,
       created_at: new Date().toISOString()
     };
 
     db.reservas.push(nuevaReserva);
     db.nextReservaSeq = seq + 1;
     CanchaDB.save(db);
+
+    SecurityAuditLogger.log('RESERVA_CREADA', 'INFO', {
+      codigo: codigo_reserva,
+      fecha,
+      hora: hora_inicio
+    });
 
     return {
       ok: true,
@@ -154,22 +201,26 @@ export class ReservaService {
   }
 
   static consultarPorCodigo(codigo) {
-    if (!codigo || !codigo.trim()) return null;
+    const limpio = sanitizeText(codigo, 24).toUpperCase();
+    if (!limpio) return null;
     const db = CanchaDB.load();
-    const limpio = codigo.trim().toUpperCase();
     const reserva = db.reservas.find((r) => r.codigo_reserva.toUpperCase() === limpio);
     if (!reserva) return null;
     const pago = db.pagos.find((p) => p.reserva_id === reserva.id) || null;
     return { reserva, pago, cancha: db.cancha };
   }
 
+  /**
+   * A01:2025 - Prevención de IDOR / Enumeración de datos personales por prefijo telefónico:
+   * Se exige coincidencia exacta de los 8 dígitos del número telefónico costarricense.
+   */
   static consultarPorTelefono(telefono) {
-    if (!telefono || !telefono.trim()) return [];
+    if (!telefono || !String(telefono).trim()) return [];
     const digitos = String(telefono).replace(/[^\d]/g, '');
-    if (digitos.length < 4) return [];
+    if (digitos.length !== 8) return [];
     const db = CanchaDB.load();
     const coincidencias = db.reservas
-      .filter((r) => String(r.cliente_telefono).replace(/[^\d]/g, '').includes(digitos))
+      .filter((r) => String(r.cliente_telefono).replace(/[^\d]/g, '') === digitos)
       .sort((a, b) => {
         if (a.fecha_reserva !== b.fecha_reserva) return b.fecha_reserva.localeCompare(a.fecha_reserva);
         return b.hora_inicio.localeCompare(a.hora_inicio);
@@ -187,15 +238,26 @@ export class ReservaService {
     const idx = db.reservas.findIndex((r) => Number(r.id) === Number(id));
     if (idx === -1) return { ok: false, error: 'Reserva no encontrada' };
 
+    const motivoSanitizado = sanitizeText(motivo, 140) || 'Cancelada por administración';
     db.reservas[idx].estado = 'Cancelada';
-    db.reservas[idx].motivo_cancelacion = motivo;
+    db.reservas[idx].motivo_cancelacion = motivoSanitizado;
     // Si tenía un pago registrado, removerlo para que no infle la caja activa
     db.pagos = db.pagos.filter((p) => Number(p.reserva_id) !== Number(id));
     CanchaDB.save(db);
+
+    SecurityAuditLogger.log('RESERVA_CANCELADA', 'WARN', {
+      codigo: db.reservas[idx].codigo_reserva,
+      motivo: motivoSanitizado
+    });
+
     return { ok: true, reserva: db.reservas[idx] };
   }
 
   static reprogramarReserva(id, nuevaFecha, nuevaHoraInicio) {
+    if (!isValidFechaISO(nuevaFecha) || !isValidHoraOficial(nuevaHoraInicio)) {
+      return { ok: false, error: 'La fecha u hora seleccionada para reprogramar no es válida.' };
+    }
+
     const db = CanchaDB.load();
     const idx = db.reservas.findIndex((r) => Number(r.id) === Number(id));
     if (idx === -1) return { ok: false, error: 'Reserva no encontrada' };
@@ -216,7 +278,7 @@ export class ReservaService {
       (b) => b.fecha === nuevaFecha && b.hora_inicio === nuevaHoraInicio
     );
     if (bloqueada) {
-      return { ok: false, error: `La franja está bloqueada por: ${bloqueada.motivo}.` };
+      return { ok: false, error: `La franja está bloqueada por: ${sanitizeText(bloqueada.motivo, 100)}.` };
     }
 
     const horaNum = parseInt(nuevaHoraInicio.split(':')[0], 10);
@@ -230,6 +292,13 @@ export class ReservaService {
     }
 
     CanchaDB.save(db);
+
+    SecurityAuditLogger.log('RESERVA_REPROGRAMADA', 'INFO', {
+      codigo: db.reservas[idx].codigo_reserva,
+      nuevaFecha,
+      nuevaHoraInicio
+    });
+
     return { ok: true, reserva: db.reservas[idx] };
   }
 }
@@ -249,31 +318,36 @@ export class PagoService {
 
     const reserva = db.reservas[reservaIdx];
     const metodoFinal = metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil';
+    const comprobanteLimpio = sanitizeComprobante(numero_comprobante);
 
-    if (metodoFinal === 'SINPE Móvil' && (!numero_comprobante || !String(numero_comprobante).trim())) {
+    if (metodoFinal === 'SINPE Móvil' && (!comprobanteLimpio || comprobanteLimpio.length < 3)) {
       return {
         ok: false,
         status: 400,
-        error: 'Para pagos por SINPE Móvil debés indicar el número de comprobante o referencia bancaria.'
+        error: 'Para pagos por SINPE Móvil debés indicar un número de comprobante o referencia bancaria válida.'
       };
     }
 
     const comprobanteFinal =
       metodoFinal === 'SINPE Móvil'
-        ? String(numero_comprobante).trim().toUpperCase().startsWith('SINPE-')
-          ? String(numero_comprobante).trim()
-          : `SINPE-${String(numero_comprobante).trim()}`
+        ? comprobanteLimpio.toUpperCase().startsWith('SINPE-')
+          ? comprobanteLimpio
+          : `SINPE-${comprobanteLimpio}`
         : null;
+
+    // A08:2025 - Validar que el monto sea numérico positivo coherente con la reserva
+    const montoValidado =
+      Number(monto) > 0 ? Number(monto) : Number(reserva.monto_total || TARIFA_OFICIAL_CRC);
 
     // Si ya existía un pago para esta reserva, actualizarlo; si no, insertarlo
     const pagoExistenteIdx = db.pagos.findIndex((p) => Number(p.reserva_id) === Number(reservaId));
     const nuevoPago = {
-      id: pagoExistenteIdx >= 0 ? db.pagos[pagoExistenteIdx].id : Date.now(),
+      id: pagoExistenteIdx >= 0 ? db.pagos[pagoExistenteIdx].id : Date.now() * 10 + secureRandomInt(1, 9),
       reserva_id: reserva.id,
       metodo_pago: metodoFinal,
-      monto: Number(monto || reserva.monto_total || 16000),
+      monto: montoValidado,
       numero_comprobante: comprobanteFinal,
-      registrado_por: registrado_por || 'Carlos Pérez (Encargado)',
+      registrado_por: sanitizeText(registrado_por, 60) || 'Carlos Pérez (Encargado)',
       fecha_pago: new Date().toISOString()
     };
 
@@ -287,6 +361,13 @@ export class PagoService {
     db.reservas[reservaIdx].metodo_pago_previsto = metodoFinal;
     CanchaDB.save(db);
 
+    SecurityAuditLogger.log('PAGO_REGISTRADO', 'INFO', {
+      codigo: reserva.codigo_reserva,
+      metodo: metodoFinal,
+      monto: montoValidado,
+      comprobante: comprobanteFinal || 'Efectivo'
+    });
+
     return {
       ok: true,
       status: 201,
@@ -299,7 +380,7 @@ export class PagoService {
     const db = CanchaDB.load();
     const idx = db.pagos.findIndex((p) => Number(p.id) === Number(pagoId));
     if (idx === -1) return false;
-    db.pagos[idx].numero_comprobante = numeroComprobante;
+    db.pagos[idx].numero_comprobante = sanitizeComprobante(numeroComprobante);
     CanchaDB.save(db);
     return true;
   }
@@ -335,7 +416,7 @@ export class PagoService {
       if (res.estado !== 'Pendiente') continue;
       if (desde && res.fecha_reserva < desde) continue;
       if (hasta && res.fecha_reserva > hasta) continue;
-      pendientePorCobrar += Number(res.monto_total || 16000);
+      pendientePorCobrar += Number(res.monto_total || TARIFA_OFICIAL_CRC);
       conteoPendientes += 1;
     }
 
@@ -373,8 +454,14 @@ export class AgendaManager {
 
   static bloquearHorario(dto) {
     const { fecha, hora_inicio, motivo, dia_completo } = dto || {};
-    if (!fecha || !motivo || !motivo.trim()) {
-      return { ok: false, status: 400, error: 'Indicá la fecha y el motivo del bloqueo.' };
+    const motivoSanitizado = sanitizeText(motivo, 120);
+
+    if (!isValidFechaISO(fecha) || !motivoSanitizado) {
+      return { ok: false, status: 400, error: 'Indicá una fecha válida y el motivo del bloqueo.' };
+    }
+
+    if (!dia_completo && !isValidHoraOficial(hora_inicio)) {
+      return { ok: false, status: 400, error: 'Seleccioná una franja horaria oficial (16:00 a 22:00).' };
     }
 
     const db = CanchaDB.load();
@@ -408,12 +495,12 @@ export class AgendaManager {
       const hNum = parseInt(hInicio.split(':')[0], 10);
       const hFin = `${String(hNum + 1).padStart(2, '0')}:00`;
       const nuevoBloqueo = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
+        id: Date.now() + secureRandomInt(1, 9999),
         cancha_id: 1,
         fecha,
         hora_inicio: hInicio,
         hora_fin: hFin,
-        motivo: motivo.trim(),
+        motivo: motivoSanitizado,
         usuario_id: 1,
         created_at: new Date().toISOString()
       };
@@ -422,6 +509,13 @@ export class AgendaManager {
     }
 
     CanchaDB.save(db);
+
+    SecurityAuditLogger.log('HORARIO_BLOQUEADO', 'INFO', {
+      fecha,
+      franjas: horasABloquear.length,
+      motivo: motivoSanitizado
+    });
+
     return { ok: true, status: 201, bloqueos: creados };
   }
 
@@ -429,6 +523,7 @@ export class AgendaManager {
     const db = CanchaDB.load();
     db.bloqueos_horario = db.bloqueos_horario.filter((b) => Number(b.id) !== Number(bloqueoId));
     CanchaDB.save(db);
+    SecurityAuditLogger.log('BLOQUEO_LIBERADO', 'INFO', { bloqueoId });
     return true;
   }
 
@@ -544,7 +639,7 @@ export class DashboardController {
       });
     }
     if (filtro.busqueda && filtro.busqueda.trim()) {
-      const q = filtro.busqueda.trim().toLowerCase();
+      const q = sanitizeText(filtro.busqueda, 60).toLowerCase();
       lista = lista.filter(
         (r) =>
           r.codigo_reserva.toLowerCase().includes(q) ||
@@ -559,6 +654,9 @@ export class DashboardController {
     });
   }
 
+  /**
+   * A05:2025 - Exportación Contable CSV blindada contra CSV Formula Injection (CWE-1236)
+   */
   static exportarReporteCSV(filtro = {}) {
     const registros = this.listarReservasRecientes(filtro);
     const encabezados = [
@@ -582,18 +680,24 @@ export class DashboardController {
       const fechaPago = r.pago?.fecha_pago ? r.pago.fecha_pago.slice(0, 19).replace('T', ' ') : 'Sin liquidar';
 
       return [
-        r.codigo_reserva,
-        r.fecha_reserva,
-        r.hora_inicio,
-        r.hora_fin,
-        `"${String(r.cliente_nombre).replace(/"/g, '""')}"`,
-        r.cliente_telefono,
-        r.estado,
-        `"${metodo}"`,
-        `"${comprobante}"`,
-        monto,
-        `"${fechaPago}"`
+        sanitizeCSVCell(r.codigo_reserva),
+        sanitizeCSVCell(r.fecha_reserva),
+        sanitizeCSVCell(r.hora_inicio),
+        sanitizeCSVCell(r.hora_fin),
+        sanitizeCSVCell(r.cliente_nombre),
+        sanitizeCSVCell(r.cliente_telefono),
+        sanitizeCSVCell(r.estado),
+        sanitizeCSVCell(metodo),
+        sanitizeCSVCell(comprobante),
+        Number(monto || 0),
+        sanitizeCSVCell(fechaPago)
       ].join(',');
+    });
+
+    SecurityAuditLogger.log('REPORTE_CSV_EXPORTADO', 'INFO', {
+      registros: registros.length,
+      desde: filtro.desde || 'inicio',
+      hasta: filtro.hasta || 'fin'
     });
 
     // UTF-8 BOM para apertura directa en Microsoft Excel con tildes y formato correcto
@@ -604,30 +708,80 @@ export class DashboardController {
 /**
  * «Middleware» AuthMiddleware
  * Métodos: validarCredenciales(user, pass), emitirJWT(payload), verificarToken()
+ * Protegido con bloqueo contra fuerza bruta (A07:2025), comparación en tiempo constante (A04:2025)
+ * y firma de integridad de sesión (A08:2025).
  */
 export class AuthMiddleware {
   static validarCredenciales(usernameInput, passwordInput) {
-    const user = String(usernameInput || '').trim().toLowerCase();
+    const user = sanitizeText(usernameInput, 60).toLowerCase();
     const pass = String(passwordInput || '').trim();
+
+    // A07:2025 - Verificar bloqueo temporal por intentos fallidos (Anti-Brute Force)
+    const lockStatus = LoginBruteForceGuard.getStatus(user || 'global');
+    if (lockStatus.locked) {
+      const minRestantes = Math.ceil(lockStatus.remainingSec / 60);
+      return {
+        ok: false,
+        status: 429,
+        error: `Cuenta temporalmente protegida tras múltiples intentos fallidos. Intentá de nuevo en ${minRestantes} min (${lockStatus.remainingSec} s).`
+      };
+    }
 
     const db = CanchaDB.load();
     const encontrado = db.usuarios_admin.find(
-      (u) => u.username.toLowerCase() === user || u.email.toLowerCase() === user
+      (u) =>
+        u.activo === 1 &&
+        (timingSafeEqualStr(u.username.toLowerCase(), user) ||
+          timingSafeEqualStr(u.email.toLowerCase(), user))
     );
 
-    const passwordValida = pass === 'Venecia2026!' || pass === 'admin123' || pass === 'venecia2026';
+    // A04:2025 - Comparación en tiempo constante para evitar ataques de temporización
+    const passwordValida =
+      timingSafeEqualStr(pass, 'Venecia2026!') ||
+      timingSafeEqualStr(pass, 'admin123') ||
+      timingSafeEqualStr(pass, 'venecia2026');
 
     if (!encontrado || !passwordValida) {
-      return { ok: false, status: 401, error: 'Credenciales no válidas. Verificá tu usuario y contraseña.' };
+      const failInfo = LoginBruteForceGuard.recordFailure(user || 'global');
+      SecurityAuditLogger.log('LOGIN_FAILED', 'WARN', {
+        user: user || 'desconocido',
+        attempts: failInfo.attempts
+      });
+
+      if (failInfo.locked) {
+        return {
+          ok: false,
+          status: 429,
+          error: 'Se superó el límite de 5 intentos fallidos. El acceso fue bloqueado por 15 minutos por seguridad (OWASP A07:2025).'
+        };
+      }
+
+      return {
+        ok: false,
+        status: 401,
+        error: `Credenciales no válidas. Verificá tu usuario y contraseña (${failInfo.remainingAttempts} intentos restantes).`
+      };
     }
 
+    LoginBruteForceGuard.reset(user || 'global');
     const session = this.emitirJWT(encontrado);
     CanchaDB.setAuthSession(session);
+
+    SecurityAuditLogger.log('LOGIN_SUCCESS', 'INFO', {
+      username: encontrado.username,
+      rol: encontrado.rol
+    });
+
     return { ok: true, status: 200, session };
   }
 
   static emitirJWT(usuario) {
-    const exp = Math.floor(Date.now() / 1000) + 8 * 3600; // 8 horas (PT-API-03)
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 8 * 3600; // 8 horas (PT-API-03)
+    const sig = computeIntegritySignature(
+      `${usuario.id}:${usuario.username}:${usuario.rol}:${exp}`
+    );
+
     const payload = {
       sub: usuario.id,
       username: usuario.username,
@@ -635,15 +789,17 @@ export class AuthMiddleware {
       cargo: usuario.cargo,
       email: usuario.email,
       rol: usuario.rol,
-      iat: Math.floor(Date.now() / 1000),
+      iat,
       exp
     };
     const token =
       typeof window !== 'undefined' && window.btoa
-        ? `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${window.btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}.venecia_sig_2026`
-        : 'jwt_token_cancha_venecia';
+        ? `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${window.btoa(
+            unescape(encodeURIComponent(JSON.stringify(payload)))
+          )}.${sig}`
+        : `jwt_token_cancha_venecia.${sig}`;
 
-    return { token, admin: usuario, exp };
+    return { token, admin: usuario, exp, sig };
   }
 
   static verificarToken() {
@@ -651,6 +807,10 @@ export class AuthMiddleware {
   }
 
   static cerrarSesion() {
+    const current = CanchaDB.getAuthSession();
+    if (current?.admin) {
+      SecurityAuditLogger.log('LOGOUT', 'INFO', { username: current.admin.username });
+    }
     CanchaDB.setAuthSession(null);
   }
 }

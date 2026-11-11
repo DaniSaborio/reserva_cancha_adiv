@@ -1,7 +1,9 @@
 // Motor de Base de Datos Relacional Isomórfico (Cloudflare D1 / SQLite Edge + Persistencia en Cliente)
-// Garantiza restricciones ACID y UNIQUE(cancha_id, fecha_reserva, hora_inicio) contra colisiones de horario.
+// Garantiza restricciones ACID, UNIQUE(cancha_id, fecha_reserva, hora_inicio) contra colisiones de horario,
+// y deserialización segura anti-Prototype Pollution (OWASP A08:2025).
 
 import seedData from '@/data/seed_data.json';
+import { safeJsonParse, computeIntegritySignature } from './security';
 
 const DB_STORAGE_KEY = 'cancha_venecia_d1_database_v1';
 const PREFS_STORAGE_KEY = 'cancha_venecia_preferencias_v1';
@@ -38,8 +40,14 @@ export const CanchaDB = {
         localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(init));
         return init;
       }
-      const parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.reservas)) {
+      const parsed = safeJsonParse(raw, null);
+      if (
+        !parsed ||
+        !Array.isArray(parsed.reservas) ||
+        !Array.isArray(parsed.pagos) ||
+        !Array.isArray(parsed.bloqueos_horario) ||
+        !Array.isArray(parsed.franjas_oficiales)
+      ) {
         const init = this.getInitialState();
         localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(init));
         return init;
@@ -73,7 +81,11 @@ export const CanchaDB = {
     if (typeof window === 'undefined') return { fontLarge: false, highContrast: false };
     try {
       const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : { fontLarge: false, highContrast: false };
+      const parsed = safeJsonParse(raw, { fontLarge: false, highContrast: false });
+      return {
+        fontLarge: Boolean(parsed?.fontLarge),
+        highContrast: Boolean(parsed?.highContrast)
+      };
     } catch {
       return { fontLarge: false, highContrast: false };
     }
@@ -82,7 +94,13 @@ export const CanchaDB = {
   setPreferences(prefs) {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+      localStorage.setItem(
+        PREFS_STORAGE_KEY,
+        JSON.stringify({
+          fontLarge: Boolean(prefs?.fontLarge),
+          highContrast: Boolean(prefs?.highContrast)
+        })
+      );
     } catch {}
   },
 
@@ -91,13 +109,29 @@ export const CanchaDB = {
     try {
       const raw = localStorage.getItem(AUTH_STORAGE_KEY);
       if (!raw) return null;
-      const session = JSON.parse(raw);
-      if (session.exp && session.exp * 1000 < Date.now()) {
+      const session = safeJsonParse(raw, null);
+      if (!session || !session.exp || !session.admin || !session.token) {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         return null;
       }
+      // A07:2025 - Expiración estricta de sesión
+      if (session.exp * 1000 < Date.now()) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+      // A04:2025 / A08:2025 - Verificación de firma de integridad del token
+      if (session.sig) {
+        const expectedSig = computeIntegritySignature(
+          `${session.admin.id}:${session.admin.username}:${session.admin.rol}:${session.exp}`
+        );
+        if (session.sig !== expectedSig) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          return null;
+        }
+      }
       return session;
     } catch {
+      // A10:2025 - Fail-Closed: ante cualquier excepción al parsear la sesión, denegar acceso
       return null;
     }
   },
