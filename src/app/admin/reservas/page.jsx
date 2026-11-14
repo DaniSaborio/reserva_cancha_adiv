@@ -33,10 +33,10 @@ export default function AdminReservasPage() {
   const [metodoFiltro, setMetodoFiltro] = useState('Todos');
   const [busqueda, setBusqueda] = useState('');
 
-  // Estado para liquidación de pago (HU-09)
+  // Estado para liquidación de pago
   const [reservaPagoActiva, setReservaPagoActiva] = useState(null);
   const [metodoPagoForm, setMetodoPagoForm] = useState('SINPE Móvil');
-  const [comprobanteForm, setComprobanteForm] = useState('SINPE-89421');
+  const [comprobanteForm, setComprobanteForm] = useState('');
 
   // Estado para reprogramación (HU-12)
   const [reservaReprogActiva, setReservaReprogActiva] = useState(null);
@@ -85,7 +85,7 @@ export default function AdminReservasPage() {
     );
   }
 
-  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  // Protección de ruta administrativa
   if (!session) {
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
@@ -96,23 +96,14 @@ export default function AdminReservasPage() {
           Sesión Administrativa Requerida
         </h1>
         <p className="text-xs sm:text-sm text-slate-600">
-          El módulo de reservas y cobros requiere autenticación activa (OWASP A01:2025 / A07:2025).
+          El módulo de reservas y cobros requiere iniciar sesión.
         </p>
-        <div className="space-y-2.5 pt-2">
-          <button
-            onClick={() => {
-              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-              cargarReservas();
-            }}
-            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
-          >
-            Entrar como Carlos Pérez (Encargado ADI)
-          </button>
+        <div className="pt-2">
           <Link
             href="/admin/login/"
-            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+            className="block w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
           >
-            Ir al formulario de inicio de sesión (/admin/login)
+            Ir a iniciar sesión
           </Link>
         </div>
       </div>
@@ -203,7 +194,7 @@ export default function AdminReservasPage() {
         </p>
       </div>
 
-      <AdminNav subtituloFecha=" Padrón General de Reservas" onResetDemo={cargarReservas} />
+      <AdminNav subtituloFecha="Padrón General de Reservas" />
 
       {mensajeExito && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-cancha-900 text-xs sm:text-sm font-bold flex items-center gap-2">
@@ -533,7 +524,7 @@ export default function AdminReservasPage() {
                         setMetodoPagoForm(
                           r.metodo_pago_previsto === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
                         );
-                        setComprobanteForm(r.pago?.numero_comprobante || 'SINPE-89421');
+                        setComprobanteForm(r.pago?.numero_comprobante || '');
                       }}
                       className="px-3.5 py-2 rounded-xl bg-cancha-700 hover:bg-cancha-800 text-white text-xs font-extrabold flex items-center gap-1.5 transition-colors"
                     >

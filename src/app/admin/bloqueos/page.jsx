@@ -71,7 +71,7 @@ export default function AdminBloqueosPage() {
     );
   }
 
-  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  // Protección de ruta administrativa
   if (!session) {
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
@@ -82,23 +82,14 @@ export default function AdminBloqueosPage() {
           Sesión Administrativa Requerida
         </h1>
         <p className="text-xs sm:text-sm text-slate-600">
-          El módulo de bloqueos de mantenimiento requiere autenticación activa (OWASP A01:2025).
+          El módulo de bloqueos de mantenimiento requiere iniciar sesión.
         </p>
-        <div className="space-y-2.5 pt-2">
-          <button
-            onClick={() => {
-              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-              cargarBloqueos();
-            }}
-            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
-          >
-            Entrar como Carlos Pérez (Encargado ADI)
-          </button>
+        <div className="pt-2">
           <Link
             href="/admin/login/"
-            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+            className="block w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
           >
-            Ir al formulario de inicio de sesión (/admin/login)
+            Ir a iniciar sesión
           </Link>
         </div>
       </div>
@@ -143,11 +134,11 @@ export default function AdminBloqueosPage() {
           Bloqueo de Horarios por Mantenimiento o Eventos
         </h1>
         <p className="text-xs sm:text-sm font-semibold text-slate-500">
-          Inhabilitá turnos en el calendario público durante arreglos de césped, iluminación o torneos comunales (RF-11 / HU-11)
+          Inhabilitá turnos en el calendario público durante arreglos de césped, iluminación o torneos comunales
         </p>
       </div>
 
-      <AdminNav subtituloFecha="Control de Disponibilidad y Mantenimiento" onResetDemo={cargarBloqueos} />
+      <AdminNav subtituloFecha="Control de Disponibilidad y Mantenimiento" />
 
       {mensajeExito && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-cancha-900 text-xs sm:text-sm font-bold flex items-center gap-2">

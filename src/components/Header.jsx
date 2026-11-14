@@ -10,8 +10,7 @@ import {
   FaFont,
   FaEye,
   FaArrowUpRightFromSquare,
-  FaUserShield,
-  FaBolt
+  FaUserShield
 } from 'react-icons/fa6';
 import { MdWifiOff } from 'react-icons/md';
 
@@ -84,11 +83,7 @@ export default function Header() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1 text-emerald-300">
-              <FaBolt className="w-3 h-3" />
-              <span>Cloudflare Edge D1 · OWASP 2025</span>
-            </span>
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleFont}
               className={`px-2 py-0.5 rounded border text-[10px] flex items-center gap-1 transition-colors ${

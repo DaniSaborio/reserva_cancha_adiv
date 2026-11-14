@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ReservaService } from '@/lib/services';
 import { formatColones, formatFechaCorta } from '@/lib/utils';
@@ -12,19 +12,14 @@ import {
   FaCircleExclamation,
   FaHandPointRight,
   FaShieldHalved,
-  FaBolt,
   FaCheck
 } from 'react-icons/fa6';
 
-function ReservarFormContent() {
-  const searchParams = useSearchParams();
+export default function ReservarPage() {
   const router = useRouter();
 
-  const fechaParam = searchParams.get('fecha') || '2026-11-06';
-  const horaParam = searchParams.get('hora') || '16:00';
-
-  const [fecha, setFecha] = useState(fechaParam);
-  const [horaInicio, setHoraInicio] = useState(horaParam);
+  const [fecha, setFecha] = useState('2026-11-06');
+  const [horaInicio, setHoraInicio] = useState('16:00');
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [metodoPago, setMetodoPago] = useState('SINPE Móvil');
@@ -33,9 +28,14 @@ function ReservarFormContent() {
   const [franjasDelDia, setFranjasDelDia] = useState([]);
 
   useEffect(() => {
-    setFecha(searchParams.get('fecha') || '2026-11-06');
-    setHoraInicio(searchParams.get('hora') || '16:00');
-  }, [searchParams]);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const f = params.get('fecha');
+      const h = params.get('hora');
+      if (f) setFecha(f);
+      if (h) setHoraInicio(h);
+    }
+  }, []);
 
   useEffect(() => {
     const disp = ReservaService.verificarDisponibilidad(fecha);
@@ -83,18 +83,6 @@ function ReservarFormContent() {
     }
 
     router.push(`/confirmacion/?codigo=${encodeURIComponent(resultado.reserva.codigo_reserva)}`);
-  };
-
-  const handleSimularColisionUI10 = () => {
-    if (!nombre.trim()) setNombre('Valeria Rojas Mora');
-    if (!telefono.trim()) setTelefono('8777-3344');
-    setErrorValidacion('');
-    const alts = ReservaService.obtenerAlternativasDisponibles(fecha, horaInicio);
-    setColisionInfo({
-      titulo: 'Horario recién ocupado',
-      mensaje: 'Otra persona confirmó mientras llenabas tus datos. No se cobró nada.',
-      alternativas: alts
-    });
   };
 
   const handleElegirAlternativa = (nuevaHora) => {
@@ -197,22 +185,10 @@ function ReservarFormContent() {
       {/* UI-04 (P05_CanchaApp.png): FORMULARIO DE CONTACTO Y MÉTODO DE PAGO  */}
       {/* =================================================================== */}
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-5">
-        <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="border-b border-slate-100 pb-3">
           <h1 className="text-lg sm:text-xl font-extrabold text-cancha-900">
             ¿Quién viene a jugar? (Sin cuenta)
           </h1>
-          <button
-            type="button"
-            onClick={() => {
-              setNombre('Valeria Rojas Mora');
-              setTelefono('8777-3344');
-              setMetodoPago('SINPE Móvil');
-              setErrorValidacion('');
-            }}
-            className="text-[11px] font-bold text-cancha-700 hover:underline"
-          >
-            Autocompletar ejemplo UI-04
-          </button>
         </div>
 
         {/* Resumen del turno seleccionado + opción de cambiar fecha/hora */}
@@ -353,38 +329,16 @@ function ReservarFormContent() {
           </button>
         </form>
 
-        {/* Nota de aclaración y botón para demostrar UI-10 (Manejo de concurrencia) */}
-        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500">
+        {/* Nota de aclaración */}
+        <div className="pt-3 border-t border-slate-100 text-xs text-slate-500">
           <p className="flex items-center gap-1.5">
             <FaShieldHalved className="w-3.5 h-3.5 text-cancha-700 shrink-0" />
             <span>
               Cero pasarelas complejas: apartar bloquea el turno de inmediato sujeto a confirmación del encargado.
             </span>
           </p>
-          <button
-            type="button"
-            onClick={handleSimularColisionUI10}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 hover:underline shrink-0"
-          >
-            <FaBolt className="w-3 h-3" />
-            <span>Probar caso de colisión (UI-10)</span>
-          </button>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function ReservarPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 text-center text-sm font-semibold text-slate-500">
-          Cargando formulario de reserva...
-        </div>
-      }
-    >
-      <ReservarFormContent />
-    </Suspense>
   );
 }

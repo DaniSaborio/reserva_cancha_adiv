@@ -9,7 +9,6 @@ import {
   ReservaService,
   AuthMiddleware
 } from '@/lib/services';
-import { SecurityAuditLogger } from '@/lib/security';
 import { formatColones, formatDDMMYYYY, formatFechaCorta } from '@/lib/utils';
 import {
   FaCheck,
@@ -21,8 +20,7 @@ import {
   FaMoneyBillWave,
   FaBan,
   FaCircleCheck,
-  FaUserShield,
-  FaShieldHalved
+  FaUserShield
 } from 'react-icons/fa6';
 
 export default function AdminDashboardPage() {
@@ -31,14 +29,12 @@ export default function AdminDashboardPage() {
   const [fechaActiva, setFechaActiva] = useState('2026-11-06');
   const [metricas, setMetricas] = useState(null);
   const [reservasDia, setReservasDia] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [mostrarOcupacion, setMostrarOcupacion] = useState(true);
   const [mostrarReservasDia, setMostrarReservasDia] = useState(true);
-  const [mostrarSeguridad, setMostrarSeguridad] = useState(false);
   const [reservaAbiertaId, setReservaAbiertaId] = useState(null);
   const [metodoCobro, setMetodoCobro] = useState('SINPE Móvil');
-  const [comprobanteInput, setComprobanteInput] = useState('SINPE-89421');
+  const [comprobanteInput, setComprobanteInput] = useState('');
   const [avisoExito, setAvisoExito] = useState('');
   const [avisoError, setAvisoError] = useState('');
 
@@ -53,7 +49,6 @@ export default function AdminDashboardPage() {
       : { fecha: fechaActiva };
     const lista = DashboardController.listarReservasRecientes(filtro);
     setReservasDia(lista);
-    setAuditLogs(SecurityAuditLogger.getRecentLogs(8));
   }, [fechaActiva, busqueda]);
 
   useEffect(() => {
@@ -67,11 +62,6 @@ export default function AdminDashboardPage() {
       window.removeEventListener('cancha-auth-updated', handleUpdate);
     };
   }, [recargarDatos]);
-
-  const handleAccesoRapidoDemo = () => {
-    AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-    recargarDatos();
-  };
 
   const handleConfirmarPago = (reserva) => {
     setAvisoError('');
@@ -114,7 +104,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Protección de ruta con opción de inicio de sesión en 1 toque
+  // Protección de ruta administrativa
   if (!session) {
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
@@ -125,20 +115,14 @@ export default function AdminDashboardPage() {
           Sesión Administrativa Requerida
         </h1>
         <p className="text-xs sm:text-sm text-slate-600">
-          El módulo financiero está protegido con autenticación JWT (RF-06 / RNF-04). Iniciá sesión para consultar los ingresos y gestionar cobros.
+          Iniciá sesión para consultar los ingresos y gestionar cobros de la cancha.
         </p>
-        <div className="space-y-2.5 pt-2">
-          <button
-            onClick={handleAccesoRapidoDemo}
-            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
-          >
-            Entrar como Carlos Pérez (Encargado ADI)
-          </button>
+        <div className="pt-2">
           <Link
             href="/admin/login/"
-            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+            className="block w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
           >
-            Ir al formulario de inicio de sesión (/admin/login)
+            Ir a iniciar sesión
           </Link>
         </div>
       </div>
@@ -167,7 +151,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-5">
-      {/* Encabezado Principal de UI-24 (P12_CanchaApp.png) */}
+      {/* Encabezado Principal */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -178,43 +162,20 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        {/* Selector rápido de jornada operativa */}
+        {/* Selector de jornada operativa */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setFechaActiva('2026-11-06')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-              fechaActiva === '2026-11-06'
-                ? 'bg-cancha-900 text-white border-cancha-900'
-                : 'bg-white text-slate-700 border-slate-200'
-            }`}
-          >
-            Viernes 06/11
-          </button>
-          <button
-            type="button"
-            onClick={() => setFechaActiva('2026-11-07')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-              fechaActiva === '2026-11-07'
-                ? 'bg-cancha-900 text-white border-cancha-900'
-                : 'bg-white text-slate-700 border-slate-200'
-            }`}
-          >
-            Sábado 07/11
-          </button>
           <input
             type="date"
             value={fechaActiva}
             onChange={(e) => e.target.value && setFechaActiva(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-800"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-800"
           />
         </div>
       </div>
 
-      {/* Navegación Administrativa (Resumen · Reservas · Bloqueos · Reportes · Cerrar sesión) */}
+      {/* Navegación Administrativa */}
       <AdminNav
         subtituloFecha={`${formatFechaCorta(fechaActiva)} (${formatDDMMYYYY(fechaActiva)})`}
-        onResetDemo={recargarDatos}
       />
 
       {avisoExito && (
@@ -493,7 +454,7 @@ export default function AdminDashboardPage() {
                                 : 'SINPE Móvil'
                             );
                             setComprobanteInput(
-                              res.pago?.numero_comprobante || 'SINPE-89421'
+                              res.pago?.numero_comprobante || ''
                             );
                           }
                         }}
@@ -613,76 +574,6 @@ export default function AdminDashboardPage() {
         >
           Ver todas las reservas
         </Link>
-      </div>
-
-      {/* =================================================================== */}
-      {/* BITÁCORA Y ESTADO DE SEGURIDAD OWASP TOP 10:2025 (A09:2025)          */}
-      {/* =================================================================== */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs space-y-3">
-        <button
-          type="button"
-          onClick={() => setMostrarSeguridad(!mostrarSeguridad)}
-          className="w-full flex items-center justify-between text-left"
-        >
-          <span className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <FaShieldHalved className="w-4 h-4 text-cancha-700" />
-            <span>Blindaje y Bitácora OWASP Top 10:2025 · 10/10 Controles Activos</span>
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-cancha-800">
-            <span>{mostrarSeguridad ? 'Ocultar' : 'Auditar'}</span>
-            {mostrarSeguridad ? (
-              <FaChevronUp className="w-3 h-3" />
-            ) : (
-              <FaChevronDown className="w-3 h-3" />
-            )}
-          </span>
-        </button>
-
-        {mostrarSeguridad && (
-          <div className="pt-2 border-t border-slate-100 space-y-3 text-xs">
-            <div className="grid sm:grid-cols-2 gap-2">
-              <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-cancha-950">
-                <strong>A01–A05:</strong> Control de acceso RBAC, Cabeceras CSP/HSTS, Service Worker seguro, CSPRNG + JWT firmado y Sanitización XSS / Anti-CSV Injection.
-              </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-cancha-950">
-                <strong>A06–A10:</strong> Rate Limiting anti-abuso, Bloqueo Fuerza Bruta (5 intentos), Anti-Prototype Pollution, Bitácora de Auditoría y manejo Fail-Closed.
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="font-extrabold text-slate-800">
-                Eventos recientes en bitácora de seguridad (A09:2025):
-              </p>
-              {auditLogs.length === 0 ? (
-                <p className="text-slate-500">Sin alertas ni eventos registrados en esta sesión.</p>
-              ) : (
-                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                  {auditLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px]"
-                    >
-                      <span className="font-bold text-slate-800">
-                        [{log.severity}] {log.event}
-                      </span>
-                      <span className="text-slate-500 font-mono">
-                        {log.timestamp.slice(11, 19)} UTC
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Pie de página administrativo estilo UI-24 */}
-      <div className="text-[11px] font-semibold text-slate-400 px-1 space-y-0.5 text-center sm:text-left">
-        <p>Acceso exclusivo para personal autorizado · Blindado con OWASP Top 10:2025.</p>
-        <p>
-          Cancha comunal · Venecia, San Carlos, Costa Rica · Sin cuenta · Reserva en tres pasos · ₡16 000 / hora
-        </p>
       </div>
     </div>
   );

@@ -9,14 +9,13 @@ import {
   FaLock,
   FaUserCheck,
   FaCircleExclamation,
-  FaArrowLeft,
-  FaKey
+  FaArrowLeft
 } from 'react-icons/fa6';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('admin@canchavenecia.cr');
-  const [password, setPassword] = useState('Venecia2026!');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -69,41 +68,6 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* Selección rápida de perfil oficial (Sección 10.2 del Documento Técnico) */}
-        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <FaKey className="w-3 h-3 text-cancha-700" />
-            <span>Perfiles Oficiales ADI Venecia (Demo Evaluación):</span>
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setUsername('admin@canchavenecia.cr');
-                setPassword('Venecia2026!');
-                setErrorMsg('');
-              }}
-              className="p-2 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-left transition-colors"
-            >
-              <p className="text-xs font-extrabold text-slate-900">Carlos Pérez</p>
-              <p className="text-[10px] text-slate-500">Encargado Cancha</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setUsername('tesoreria@canchavenecia.cr');
-                setPassword('Venecia2026!');
-                setErrorMsg('');
-              }}
-              className="p-2 rounded-xl bg-white hover:bg-emerald-50 border border-slate-200 text-left transition-colors"
-            >
-              <p className="text-xs font-extrabold text-slate-900">Marta Soto</p>
-              <p className="text-[10px] text-slate-500">Tesorera / Fiscalía</p>
-            </button>
-          </div>
-        </div>
-
         {errorMsg && (
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
             <FaCircleExclamation className="w-4 h-4 shrink-0" />
@@ -123,6 +87,7 @@ export default function AdminLoginPage() {
               id="admin-user"
               type="text"
               required
+              placeholder="Ej. admin@canchavenecia.cr"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:border-cancha-700"
@@ -134,12 +99,13 @@ export default function AdminLoginPage() {
               htmlFor="admin-pass"
               className="block text-xs font-extrabold text-slate-700 mb-1.5"
             >
-              Contraseña protegida
+              Contraseña
             </label>
             <input
               id="admin-pass"
               type="password"
               required
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-semibold text-slate-900 focus:outline-none focus:border-cancha-700"
@@ -151,16 +117,13 @@ export default function AdminLoginPage() {
             className="w-full py-3.5 px-5 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-sm shadow-sm flex items-center justify-center gap-2 transition-colors"
           >
             <FaUserCheck className="w-4 h-4" />
-            <span>Iniciar sesión segura (JWT)</span>
+            <span>Iniciar sesión</span>
           </button>
         </form>
 
-        <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-          <span className="flex items-center gap-1">
-            <FaLock className="w-3 h-3 text-cancha-700" />
-            <span>Hashing PBKDF2 · Token válido 8h</span>
-          </span>
-          <span>Acceso exclusivo personal autorizado</span>
+        <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+          <FaLock className="w-3 h-3 text-cancha-700" />
+          <span>Acceso exclusivo para personal autorizado de la ADI Venecia</span>
         </div>
       </div>
     </div>

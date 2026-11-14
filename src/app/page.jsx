@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReservaService, AgendaManager } from '@/lib/services';
 import {
@@ -21,9 +20,7 @@ import {
   FaWrench,
   FaRegCircle,
   FaArrowRight,
-  FaShieldHalved,
-  FaMagnifyingGlass,
-  FaUserShield
+  FaShieldHalved
 } from 'react-icons/fa6';
 
 const DIAS_MATRIZ = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -182,8 +179,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Selector Temporal Centrado: Pestañas Día, Semana y Mes + Accesos rápidos de Fecha */}
-        <div className="flex flex-col items-center justify-center gap-3 pt-1">
+        {/* Selector Temporal Centrado: Pestañas Día, Semana y Mes */}
+        <div className="flex flex-col items-center justify-center pt-1">
           <div
             role="tablist"
             aria-label="Seleccionar vista de calendario (Día, Semana o Mes)"
@@ -208,29 +205,6 @@ export default function HomePage() {
                 {tab.label}
               </button>
             ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-            <button
-              onClick={() => setFechaSeleccionada('2026-11-06')}
-              className={`px-3.5 py-1.5 rounded-xl font-bold border transition-colors ${
-                fechaSeleccionada === '2026-11-06'
-                  ? 'bg-cancha-900 text-white border-cancha-900'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-              }`}
-            >
-              Viernes 06/11 (Demo)
-            </button>
-            <button
-              onClick={() => setFechaSeleccionada('2026-11-07')}
-              className={`px-3.5 py-1.5 rounded-xl font-bold border transition-colors ${
-                fechaSeleccionada === '2026-11-07'
-                  ? 'bg-cancha-900 text-white border-cancha-900'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-              }`}
-            >
-              Sábado 07/11
-            </button>
           </div>
         </div>
 
@@ -708,7 +682,7 @@ export default function HomePage() {
           <p className="text-xs text-slate-500 leading-relaxed flex items-start justify-center gap-2 text-center max-w-2xl mx-auto">
             <FaShieldHalved className="w-4 h-4 text-cancha-700 shrink-0 mt-0.5" />
             <span>
-              Una reserva pendiente también ocupa el horario al instante para evitar choques de equipos. Tus datos personales (nombre y teléfono) nunca se muestran en el calendario público (OWASP A01/A04).
+              Una reserva pendiente también ocupa el horario al instante para evitar choques de equipos. Tus datos personales nunca se muestran en el calendario público.
             </span>
           </p>
 
@@ -717,49 +691,6 @@ export default function HomePage() {
             <span>Sin cuenta · Reserva en tres pasos · ₡16 000 / hora</span>
           </div>
         </div>
-      </div>
-
-      {/* Accesos rápidos inferiores para Consulta de Reserva y Panel Admin */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Link
-          href="/mi-reserva/"
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-cancha-600 transition-all flex items-center justify-between group shadow-2xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-cancha-800">
-              <FaMagnifyingGlass className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 group-hover:text-cancha-800 transition-colors">
-                ¿Ya apartaste tu cancha?
-              </h3>
-              <p className="text-xs text-slate-500">
-                Consultá el estado con tu código CAN o número de teléfono
-              </p>
-            </div>
-          </div>
-          <FaArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cancha-700 group-hover:translate-x-1 transition-all" />
-        </Link>
-
-        <Link
-          href="/admin/dashboard/"
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-cancha-600 transition-all flex items-center justify-between group shadow-2xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-slate-100 text-slate-700">
-              <FaUserShield className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 group-hover:text-cancha-800 transition-colors">
-                Panel Administrativo ADI Venecia
-              </h3>
-              <p className="text-xs text-slate-500">
-                Dashboard financiero Efectivo / SINPE y liquidación de cobros
-              </p>
-            </div>
-          </div>
-          <FaArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cancha-700 group-hover:translate-x-1 transition-all" />
-        </Link>
       </div>
     </div>
   );

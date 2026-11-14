@@ -58,7 +58,7 @@ export default function AdminReportesPage() {
     );
   }
 
-  // OWASP A01:2025 Broken Access Control — Protección de ruta administrativa
+  // Protección de ruta administrativa
   if (!session) {
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-4">
@@ -69,23 +69,14 @@ export default function AdminReportesPage() {
           Sesión Administrativa Requerida
         </h1>
         <p className="text-xs sm:text-sm text-slate-600">
-          La exportación de reportes contables requiere autenticación activa (OWASP A01:2025).
+          La exportación de reportes contables requiere iniciar sesión.
         </p>
-        <div className="space-y-2.5 pt-2">
-          <button
-            onClick={() => {
-              AuthMiddleware.validarCredenciales('admin@canchavenecia.cr', 'Venecia2026!');
-              calcularReporte();
-            }}
-            className="w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
-          >
-            Entrar como Carlos Pérez (Encargado ADI)
-          </button>
+        <div className="pt-2">
           <Link
             href="/admin/login/"
-            className="block w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+            className="block w-full py-3.5 px-4 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white font-extrabold text-xs sm:text-sm transition-colors"
           >
-            Ir al formulario de inicio de sesión (/admin/login)
+            Ir a iniciar sesión
           </Link>
         </div>
       </div>
@@ -113,7 +104,7 @@ export default function AdminReportesPage() {
             Reportes Financieros y Exportación Contable
           </h1>
           <p className="text-xs sm:text-sm font-semibold text-slate-500">
-            Cierres por rango de fechas y exportación directa a Excel / CSV para la Tesorería y Fiscalía de la ADI Venecia (HU-10 / HU-14)
+            Cierres por rango de fechas y exportación directa a Excel / CSV para la Tesorería y Fiscalía de la ADI Venecia
           </p>
         </div>
 
@@ -140,15 +131,14 @@ export default function AdminReportesPage() {
 
       <AdminNav
         subtituloFecha={`Periodo ${formatDDMMYYYY(desde)} al ${formatDDMMYYYY(hasta)}`}
-        onResetDemo={calcularReporte}
       />
 
-      {/* Selector de Rango de Fechas (HU-10) */}
+      {/* Selector de Rango de Fechas */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3 no-print">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <h2 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center justify-center gap-2">
             <FaCalendarDays className="w-4 h-4 text-cancha-700" />
-            <span>Filtrar ingresos y reservas por periodo (Día, Semana o Mes):</span>
+            <span>Filtrar ingresos y reservas por periodo:</span>
           </h2>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -160,7 +150,7 @@ export default function AdminReportesPage() {
               }}
               className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 border border-slate-200 transition-colors"
             >
-              Día · Viernes 06/11
+              Día
             </button>
             <button
               type="button"
@@ -170,7 +160,7 @@ export default function AdminReportesPage() {
               }}
               className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 border border-slate-200 transition-colors"
             >
-              Semana · 02/11 al 08/11
+              Semana
             </button>
             <button
               type="button"
@@ -180,7 +170,7 @@ export default function AdminReportesPage() {
               }}
               className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-cancha-900 border border-emerald-300 transition-colors"
             >
-              Mes · Noviembre 2026
+              Mes
             </button>
           </div>
         </div>

@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ReservaService } from '@/lib/services';
 import {
@@ -20,10 +19,9 @@ import {
   FaFileInvoiceDollar
 } from 'react-icons/fa6';
 
-function MiReservaContent() {
-  const searchParams = useSearchParams();
-  const [codigoInput, setCodigoInput] = useState('CAN-2026-03');
-  const [telefonoInput, setTelefonoInput] = useState('8911-2233');
+export default function MiReservaPage() {
+  const [codigoInput, setCodigoInput] = useState('');
+  const [telefonoInput, setTelefonoInput] = useState('');
   const [resultados, setResultados] = useState([]);
   const [mensajeError, setMensajeError] = useState('');
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
@@ -53,12 +51,15 @@ function MiReservaContent() {
   };
 
   useEffect(() => {
-    const qCodigo = searchParams.get('codigo');
-    if (qCodigo) {
-      setCodigoInput(qCodigo);
-      ejecutarBusquedaCodigo(qCodigo);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const qCodigo = params.get('codigo');
+      if (qCodigo) {
+        setCodigoInput(qCodigo);
+        ejecutarBusquedaCodigo(qCodigo);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   const handleSubmitCodigo = (e) => {
     e.preventDefault();
@@ -76,39 +77,13 @@ function MiReservaContent() {
       {/* UI-07 (P08_CanchaApp.png): BUSCADOR DE RESERVA ("Encontrá tu reserva") */}
       {/* =================================================================== */}
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-5">
-        <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-cancha-700">
-              Autoservicio Comunal
-            </span>
-            <h1 className="text-lg sm:text-xl font-extrabold text-cancha-900">
-              Encontrá tu reserva (Sin iniciar sesión)
-            </h1>
-          </div>
-
-          {/* Botones rápidos para evaluar UI-08 (Pendiente) y UI-09 (Confirmada) */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setCodigoInput('CAN-2026-03');
-                ejecutarBusquedaCodigo('CAN-2026-03');
-              }}
-              className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-colors"
-            >
-              Ver Pendiente (CAN-2026-03)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCodigoInput('CAN-2026-01');
-                ejecutarBusquedaCodigo('CAN-2026-01');
-              }}
-              className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-cancha-900 border border-emerald-200 transition-colors"
-            >
-              Ver Confirmada (CAN-2026-01)
-            </button>
-          </div>
+        <div className="border-b border-slate-100 pb-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-cancha-700">
+            Autoservicio Comunal
+          </span>
+          <h1 className="text-lg sm:text-xl font-extrabold text-cancha-900">
+            Encontrá tu reserva (Sin iniciar sesión)
+          </h1>
         </div>
 
         {/* Opción 1: Con tu código */}
@@ -334,19 +309,5 @@ function MiReservaContent() {
         );
       })}
     </div>
-  );
-}
-
-export default function MiReservaPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 text-center text-sm font-semibold text-slate-500">
-          Cargando buscador de reservas...
-        </div>
-      }
-    >
-      <MiReservaContent />
-    </Suspense>
   );
 }

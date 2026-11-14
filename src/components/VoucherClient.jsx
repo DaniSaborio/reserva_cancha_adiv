@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ReservaService } from '@/lib/services';
 import {
@@ -15,26 +14,33 @@ import {
   FaWhatsapp,
   FaPrint,
   FaCopy,
-  FaMobileScreenButton,
-  FaMoneyBillWave,
   FaCalendarDays,
   FaMagnifyingGlass,
   FaShieldHalved
 } from 'react-icons/fa6';
 
 export default function VoucherClient({ initialCodigo = '' }) {
-  const searchParams = useSearchParams();
-  const [codigoActivo, setCodigoActivo] = useState(initialCodigo || '');
-  const [detalle, setDetalle] = useState(null);
-  const [varianteVista, setVarianteVista] = useState('SINPE Móvil'); // 'SINPE Móvil' | 'Efectivo'
+  const defaultCode = initialCodigo || 'CAN-2026-03';
+  const [codigoActivo, setCodigoActivo] = useState(defaultCode);
+  const [detalle, setDetalle] = useState(
+    () =>
+      ReservaService.consultarPorCodigo(defaultCode) ||
+      ReservaService.consultarPorCodigo('CAN-2026-03')
+  );
+  const [varianteVista, setVarianteVista] = useState('SINPE Móvil');
   const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
-    let cod = initialCodigo || searchParams.get('codigo') || '';
-    if (!cod && typeof window !== 'undefined') {
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      if (parts[0] === 'confirmacion' && parts[1]) {
-        cod = decodeURIComponent(parts[1]);
+    let cod = initialCodigo || '';
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('codigo')) {
+        cod = params.get('codigo');
+      } else if (!cod) {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts[0] === 'confirmacion' && parts[1]) {
+          cod = decodeURIComponent(parts[1]);
+        }
       }
     }
     if (!cod) {
@@ -42,14 +48,16 @@ export default function VoucherClient({ initialCodigo = '' }) {
     }
     setCodigoActivo(cod);
 
-    const info = ReservaService.consultarPorCodigo(cod) || ReservaService.consultarPorCodigo('CAN-2026-03');
+    const info =
+      ReservaService.consultarPorCodigo(cod) ||
+      ReservaService.consultarPorCodigo('CAN-2026-03');
     if (info) {
       setDetalle(info);
       setVarianteVista(
         info.reserva.metodo_pago_previsto === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
       );
     }
-  }, [initialCodigo, searchParams]);
+  }, [initialCodigo]);
 
   const handleCopiarCodigo = () => {
     if (!detalle?.reserva) return;
@@ -97,41 +105,8 @@ export default function VoucherClient({ initialCodigo = '' }) {
         </div>
       </div>
 
-      {/* Selector de Variante de Comprobante centrado (UI-05 SINPE Móvil vs UI-06 Efectivo) */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 no-print">
-        <span className="text-xs font-bold text-slate-500">
-          Modalidad de comprobante (Paso 3):
-        </span>
-        <div className="inline-flex items-center justify-center p-1 rounded-full bg-white border border-slate-200">
-          <button
-            type="button"
-            onClick={() => setVarianteVista('SINPE Móvil')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-              varianteVista === 'SINPE Móvil'
-                ? 'bg-emerald-100 text-cancha-900 border border-emerald-300'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FaMobileScreenButton className="w-3 h-3" />
-            <span>Instrucciones SINPE (UI-05)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setVarianteVista('Efectivo')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-              varianteVista === 'Efectivo'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FaMoneyBillWave className="w-3 h-3" />
-            <span>Pago en Efectivo (UI-06)</span>
-          </button>
-        </div>
-      </div>
-
       {/* =================================================================== */}
-      {/* VARIANTE 1: UI-05 (P06_CanchaApp.png) — COMPROBANTE SINPE MÓVIL     */}
+      {/* VARIANTE 1: COMPROBANTE SINPE MÓVIL                                 */}
       {/* =================================================================== */}
       {varianteVista === 'SINPE Móvil' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
