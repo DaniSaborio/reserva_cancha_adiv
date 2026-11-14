@@ -1,11 +1,12 @@
 import './globals.css';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
+import PromoPortalMigrante from '@/components/PromoPortalMigrante';
 
 export const metadata = {
   title: 'CanchaApp — Sistema de Gestión de Reservas para Cancha Comunal (ADI Venecia)',
   description:
-    'Plataforma web serverless de costo operativo cero para la reserva de horarios en tiempo real y control contable Efectivo/SINPE de la cancha sintética de la Asociación de Desarrollo Integral de Venecia.',
+    'Plataforma web para la reserva de horarios en tiempo real y control contable Efectivo/SINPE de la cancha sintética de la Asociación de Desarrollo Integral de Venecia.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icons/icon-192.svg',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }) {
         <Header />
         <main className="max-w-4xl mx-auto px-4 py-5 min-h-[calc(100vh-12rem)]">
           {children}
+          <PromoPortalMigrante />
         </main>
         <BottomNav />
       </body>
