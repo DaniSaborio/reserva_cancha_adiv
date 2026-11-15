@@ -1,12 +1,12 @@
-name = "cancha-sintetica-venecia"
-compatibility_date = "2026-10-29"
+name = "reserva-cancha-adiv"
+compatibility_date = "2025-01-01"
 pages_build_output_dir = "out"
 
 # Base de datos relacional Serverless Cloudflare D1 (Free Tier Perpetuo: $0.00/mes)
 [[d1_databases]]
 binding = "DB"
 database_name = "cancha_sintetica_venecia_db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "40595c7c-1187-4ead-94b2-54dba9b15204"
 
 [vars]
 SINPE_OFICIAL = "8888-9999"

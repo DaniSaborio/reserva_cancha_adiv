@@ -18,11 +18,15 @@ export default function PromoPortalMigrante() {
   const [oculto, setOculto] = useState(false);
   const [expandido, setExpandido] = useState(false);
   const [portalUrl, setPortalUrl] = useState(
-    process.env.NEXT_PUBLIC_PORTAL_MIGRANTE_URL || 'http://localhost:3001/'
+    process.env.NEXT_PUBLIC_PORTAL_MIGRANTE_URL || 'https://migracion-info-web.pages.dev/'
   );
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_PORTAL_MIGRANTE_URL && typeof window !== 'undefined') {
+    if (
+      !process.env.NEXT_PUBLIC_PORTAL_MIGRANTE_URL &&
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
       const currentPort = window.location.port;
       const targetPort = currentPort === '3001' ? '3000' : '3001';
       setPortalUrl(`${window.location.protocol}//${window.location.hostname}:${targetPort}/`);
