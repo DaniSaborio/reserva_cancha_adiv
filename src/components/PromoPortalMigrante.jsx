@@ -100,24 +100,35 @@ export default function PromoPortalMigrante() {
       </div>
 
       {expandido && (
-        <div className="mt-3 pt-3 border-t border-sky-100 grid sm:grid-cols-3 gap-2.5 text-xs text-slate-600">
-          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100">
+        <div className="mt-3 pt-3 border-t border-sky-100 grid sm:grid-cols-4 gap-2.5 text-xs text-slate-600 items-center">
+          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100 h-full">
             <FaBookOpen className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
             <span>
               <strong className="text-slate-800">5 Guías paso a paso:</strong> Refugio, Categoría Especial, Vínculo, DIMEX y Seguro CCSS sin intermediarios.
             </span>
           </div>
-          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100">
+          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100 h-full">
             <FaLocationDot className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
             <span>
               <strong className="text-slate-800">Directorio Regional:</strong> Sedes oficiales en Venecia, Pital, Aguas Zarcas, Ciudad Quesada, Upala y Los Chiles.
             </span>
           </div>
-          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100">
+          <div className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-100 h-full">
             <FaShieldHalved className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
             <span>
               <strong className="text-slate-800">100% Gratuito y Privado:</strong> Funciona sin internet y no solicita datos personales ni contraseñas.
             </span>
+          </div>
+          <div className="flex items-center gap-2.5 bg-white p-2 rounded-xl border border-sky-200 justify-center sm:justify-start">
+            <img
+              src="/icons/qr-portal-migrante.png"
+              alt="Código QR hacia migracion-info-web.pages.dev"
+              className="w-14 h-14 rounded-lg border border-slate-100 shrink-0"
+            />
+            <div className="text-[11px] leading-tight">
+              <p className="font-extrabold text-slate-900">Código QR</p>
+              <p className="text-slate-500 mt-0.5">Escaneá para abrir en otro celular</p>
+            </div>
           </div>
         </div>
       )}
