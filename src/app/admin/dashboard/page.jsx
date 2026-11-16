@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import {
@@ -22,7 +22,8 @@ import {
   FaBan,
   FaCircleCheck,
   FaUserShield,
-  FaTags
+  FaTags,
+  FaXmark
 } from 'react-icons/fa6';
 
 export default function AdminDashboardPage() {
@@ -49,6 +50,8 @@ export default function AdminDashboardPage() {
   const [tarifaNocturnaInput, setTarifaNocturnaInput] = useState(1500);
   const [maxJugadoresInput, setMaxJugadoresInput] = useState(16);
   const [guardandoTarifa, setGuardandoTarifa] = useState(false);
+  const [popupTarifa, setPopupTarifa] = useState(null);
+  const popupTimerRef = useRef(null);
 
   const recargarDatos = useCallback(() => {
     const ses = AuthMiddleware.verificarToken();
@@ -178,10 +181,16 @@ export default function AdminDashboardPage() {
       ? `Diurna (16:00–18:00): ${formatColones(res.tarifas.tarifa_diurna)} / ${unidad} · Nocturna (18:00–23:00): ${formatColones(res.tarifas.tarifa_nocturna)} / ${unidad}`
       : `${formatColones(res.tarifas.tarifa_hora)} por ${unidad} en todos los horarios`;
 
-    setAvisoExito(
-      `Configuración actualizada: ${textoNuevaTarifa} · Máximo ${res.tarifas.max_jugadores} jugadores por turno.`
-    );
+    const resumenGuardado = `${textoNuevaTarifa} · Máx. ${res.tarifas.max_jugadores} jugadores por turno.`;
+    setPopupTarifa({ resumen: resumenGuardado });
+    if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+    popupTimerRef.current = setTimeout(() => setPopupTarifa(null), 5000);
     recargarDatos();
+  };
+
+  const cerrarPopupTarifa = () => {
+    if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+    setPopupTarifa(null);
   };
 
   const handleCambiarTipoCobro = (nuevoTipo) => {
@@ -613,17 +622,74 @@ export default function AdminDashboardPage() {
               <p className="text-[11px] text-slate-500">
                 El nuevo precio y el límite de jugadores se aplicarán de inmediato en el calendario público, formulario de reserva y Cloudflare D1.
               </p>
-              <button
-                type="submit"
-                disabled={guardandoTarifa}
-                className="px-5 py-2.5 rounded-xl bg-cancha-800 hover:bg-cancha-900 disabled:opacity-60 text-white font-extrabold text-xs sm:text-sm shadow-sm transition-colors"
-              >
-                {guardandoTarifa ? 'Actualizando...' : 'Guardar tarifas y máximo'}
-              </button>
+
+              {popupTarifa ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-emerald-50 border-2 border-emerald-500 text-cancha-950 shadow-md transition-all"
+                >
+                  <FaCircleCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="text-left">
+                    <p className="text-xs font-extrabold leading-tight">
+                      ¡Cambios guardados!
+                    </p>
+                    <p className="text-[11px] font-semibold text-cancha-800 leading-tight mt-0.5">
+                      Precios y aforo actualizados
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cerrarPopupTarifa}
+                    className="p-1 rounded-lg text-cancha-700 hover:bg-emerald-100 transition-colors"
+                    aria-label="Cerrar aviso y volver al botón"
+                    title="Cerrar"
+                  >
+                    <FaXmark className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={guardandoTarifa}
+                  className="px-5 py-2.5 rounded-xl bg-cancha-800 hover:bg-cancha-900 disabled:opacity-60 text-white font-extrabold text-xs sm:text-sm shadow-sm transition-colors"
+                >
+                  {guardandoTarifa ? 'Actualizando...' : 'Guardar tarifas y máximo'}
+                </button>
+              )}
             </div>
           </form>
         )}
       </div>
+
+      {/* Pop-up flotante de confirmación al guardar cambios de precios */}
+      {popupTarifa && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 right-4 left-4 sm:left-auto sm:max-w-sm z-50 bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-xl flex items-start gap-3 no-print"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <FaCircleCheck className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-extrabold text-slate-900">
+              ¡Fueron guardados los cambios!
+            </p>
+            <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug">
+              {popupTarifa.resumen}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={cerrarPopupTarifa}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0"
+            aria-label="Cerrar notificación"
+          >
+            <FaXmark className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* TARJETA OCUPACIÓN SEMANAL · 10,2% (UI-24 / P12)                      */}
