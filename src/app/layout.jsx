@@ -29,9 +29,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className="font-sans">
         <Header />
+        <PromoPortalMigrante />
         <main className="max-w-4xl mx-auto px-4 py-5 min-h-[calc(100vh-12rem)]">
           {children}
-          <PromoPortalMigrante />
         </main>
         <BottomNav />
       </body>
