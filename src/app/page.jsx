@@ -9,7 +9,8 @@ import {
   formatDDMMYYYY,
   sumarDiasISO,
   obtenerLunesDeSemana,
-  parseFechaISO
+  parseFechaISO,
+  getFechaHoyISO
 } from '@/lib/utils';
 import {
   FaChevronLeft,
@@ -48,12 +49,13 @@ export default function HomePage() {
   const [diasMes, setDiasMes] = useState([]);
 
   const cargarDisponibilidad = useCallback(() => {
-    // 1. Disponibilidad del día seleccionado (UI-01 y panel inferior de UI-03)
+    // 1. Disponibilidad síncrona inmediata desde memoria/caché local
     const franjas = ReservaService.verificarDisponibilidad(fechaSeleccionada);
     setFranjasDia(franjas);
 
     // 2. Matriz de 7 días para la Vista Semanal (UI-02)
     const lunesISO = obtenerLunesDeSemana(fechaSeleccionada);
+    const domingoISO = sumarDiasISO(lunesISO, 6);
     const diasDeSemana = [];
     for (let i = 0; i < 7; i++) {
       const fISO = sumarDiasISO(lunesISO, i);
@@ -87,7 +89,46 @@ export default function HomePage() {
     const dSel = parseFechaISO(fechaSeleccionada);
     const calMes = AgendaManager.obtenerCalendarioMensual(dSel.getFullYear(), dSel.getMonth());
     setDiasMes(calMes);
+
+    // 4. Sincronización en vivo con Cloudflare D1 en el Edge
+    ReservaService.verificarDisponibilidadAsync(fechaSeleccionada).then((remotas) => {
+      if (remotas && remotas.length) {
+        setFranjasDia(remotas);
+      }
+    });
+
+    ReservaService.verificarDisponibilidadRangoAsync(lunesISO, domingoISO).then(() => {
+      const diasActualizados = [];
+      for (let i = 0; i < 7; i++) {
+        const fISO = sumarDiasISO(lunesISO, i);
+        const dObj = parseFechaISO(fISO);
+        const disp = ReservaService.verificarDisponibilidad(fISO);
+        diasActualizados.push({
+          fecha: fISO,
+          diaNumero: dObj.getDate(),
+          letra: DIAS_MATRIZ[i],
+          nombreCorto: NOMBRES_DIA_CORTO[dObj.getDay()],
+          nombreMinuscula: NOMBRES_DIA_COMPLETO[dObj.getDay()],
+          franjas: disp
+        });
+      }
+      setMatrizSemana(diasActualizados);
+      setDiasMes(AgendaManager.obtenerCalendarioMensual(dSel.getFullYear(), dSel.getMonth()));
+    });
   }, [fechaSeleccionada]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const f = params.get('fecha');
+      if (f) {
+        setFechaSeleccionada(f);
+      } else {
+        const hoy = getFechaHoyISO();
+        setFechaSeleccionada(hoy);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     cargarDisponibilidad();

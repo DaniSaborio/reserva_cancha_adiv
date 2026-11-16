@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import { AgendaManager, AuthMiddleware } from '@/lib/services';
-import { formatFechaCorta, formatDDMMYYYY } from '@/lib/utils';
+import { formatFechaCorta, formatDDMMYYYY, getFechaHoyISO } from '@/lib/utils';
 import {
   FaWrench,
   FaBan,
@@ -49,10 +49,17 @@ export default function AdminBloqueosPage() {
     setSession(ses);
     if (!ses) return;
     setBloqueos(AgendaManager.listarBloqueos());
+
+    if (ses.token) {
+      AgendaManager.listarBloqueosAsync(ses.token).then((list) => {
+        if (list) setBloqueos(list);
+      });
+    }
   }, []);
 
   useEffect(() => {
     setMounted(true);
+    setFecha(getFechaHoyISO());
     cargarBloqueos();
     const handleUpdate = () => cargarBloqueos();
     window.addEventListener('cancha-db-updated', handleUpdate);
@@ -96,17 +103,20 @@ export default function AdminBloqueosPage() {
     );
   }
 
-  const handleCrearBloqueo = (e) => {
+  const handleCrearBloqueo = async (e) => {
     e.preventDefault();
     setMensajeError('');
     setMensajeExito('');
 
-    const res = AgendaManager.bloquearHorario({
-      fecha,
-      hora_inicio: horaInicio,
-      motivo,
-      dia_completo: diaCompleto
-    });
+    const res = await AgendaManager.bloquearHorarioAsync(
+      {
+        fecha,
+        hora_inicio: horaInicio,
+        motivo,
+        dia_completo: diaCompleto
+      },
+      session?.token
+    );
 
     if (!res.ok) {
       setMensajeError(res.error || 'No se pudo bloquear el horario.');
@@ -121,8 +131,8 @@ export default function AdminBloqueosPage() {
     cargarBloqueos();
   };
 
-  const handleLiberar = (id) => {
-    AgendaManager.liberarBloqueo(id);
+  const handleLiberar = async (id) => {
+    await AgendaManager.liberarBloqueoAsync(id, session?.token);
     setMensajeExito('El bloqueo fue eliminado y el horario volvió a estar disponible.');
     cargarBloqueos();
   };

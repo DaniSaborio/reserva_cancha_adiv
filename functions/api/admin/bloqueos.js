@@ -28,6 +28,45 @@ function verifyBearerJwt(authHeader) {
   }
 }
 
+export async function onRequestGet(context) {
+  const { request, env } = context;
+  const auth = request.headers.get('Authorization') || '';
+  const claims = verifyBearerJwt(auth);
+  if (!claims) {
+    return Response.json({ error: 'No autorizado' }, { status: 401, headers: SEC_HEADERS });
+  }
+
+  if (env && env.DB) {
+    const res = await env.DB.prepare(
+      'SELECT * FROM bloqueos_horario ORDER BY fecha DESC, hora_inicio ASC'
+    ).all();
+    return Response.json(res.results || [], { status: 200, headers: SEC_HEADERS });
+  }
+
+  return Response.json([], { status: 200, headers: SEC_HEADERS });
+}
+
+export async function onRequestDelete(context) {
+  const { request, env } = context;
+  const auth = request.headers.get('Authorization') || '';
+  const claims = verifyBearerJwt(auth);
+  if (!claims) {
+    return Response.json({ error: 'No autorizado' }, { status: 401, headers: SEC_HEADERS });
+  }
+
+  const url = new URL(request.url);
+  const id = Number(url.searchParams.get('id'));
+  if (!id || id <= 0) {
+    return Response.json({ error: 'ID de bloqueo inválido' }, { status: 400, headers: SEC_HEADERS });
+  }
+
+  if (env && env.DB) {
+    await env.DB.prepare('DELETE FROM bloqueos_horario WHERE id = ?').bind(id).run();
+  }
+
+  return Response.json({ ok: true, id }, { status: 200, headers: SEC_HEADERS });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   const auth = request.headers.get('Authorization') || '';

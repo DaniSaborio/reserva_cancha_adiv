@@ -419,6 +419,67 @@ async function handleApiRequest(req, res, urlObj) {
     }
   }
 
+  // 8. GET /api/admin/bloqueos & DELETE /api/admin/bloqueos
+  if (pathname === '/api/admin/bloqueos' && method === 'GET') {
+    const claims = verifyBearerJwt(req.headers['authorization'] || '');
+    if (!claims) return sendJson(res, 401, { error: 'No autorizado' });
+    return sendJson(res, 200, localD1.bloqueos_horario || []);
+  }
+
+  if (pathname === '/api/admin/bloqueos' && method === 'DELETE') {
+    const claims = verifyBearerJwt(req.headers['authorization'] || '');
+    if (!claims) return sendJson(res, 401, { error: 'No autorizado' });
+    const id = Number(urlObj.searchParams.get('id'));
+    localD1.bloqueos_horario = localD1.bloqueos_horario.filter((b) => Number(b.id) !== id);
+    return sendJson(res, 200, { ok: true, id });
+  }
+
+  // 9. GET /api/admin/reservas & PATCH /api/admin/reservas
+  if (pathname === '/api/admin/reservas' && method === 'GET') {
+    const claims = verifyBearerJwt(req.headers['authorization'] || '');
+    if (!claims) return sendJson(res, 401, { error: 'No autorizado' });
+    const reservasConPagos = localD1.reservas.map((r) => {
+      const p = localD1.pagos.find((pago) => pago.reserva_id === r.id);
+      return {
+        ...r,
+        pago_metodo: p?.metodo_pago || null,
+        numero_comprobante: p?.numero_comprobante || null,
+        fecha_pago: p?.fecha_pago || null
+      };
+    });
+    return sendJson(res, 200, reservasConPagos);
+  }
+
+  if (pathname === '/api/admin/reservas' && method === 'PATCH') {
+    const claims = verifyBearerJwt(req.headers['authorization'] || '');
+    if (!claims) return sendJson(res, 401, { error: 'No autorizado' });
+    try {
+      const body = await readJsonBody(req);
+      const { action, id, motivo, fecha, hora } = body;
+      const idNum = Number(id);
+      const rIdx = localD1.reservas.findIndex((r) => Number(r.id) === idNum);
+      if (rIdx === -1) return sendJson(res, 404, { error: 'Reserva no encontrada' });
+
+      if (action === 'cancelar') {
+        localD1.reservas[rIdx].estado = 'Cancelada';
+        localD1.reservas[rIdx].motivo_cancelacion = motivo || 'Cancelada por administración';
+        return sendJson(res, 200, { ok: true, status: 'Cancelada' });
+      }
+
+      if (action === 'reprogramar') {
+        const horaNum = parseInt(hora.split(':')[0], 10);
+        localD1.reservas[rIdx].fecha_reserva = fecha;
+        localD1.reservas[rIdx].hora_inicio = hora;
+        localD1.reservas[rIdx].hora_fin = `${String(horaNum + 1).padStart(2, '0')}:00`;
+        return sendJson(res, 200, { ok: true, fecha, hora });
+      }
+
+      return sendJson(res, 400, { error: 'Acción no soportada' });
+    } catch {
+      return sendJson(res, 400, { error: 'Formato inválido' });
+    }
+  }
+
   return sendJson(res, 404, { error: 'Endpoint API no encontrado' });
 }
 

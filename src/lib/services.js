@@ -74,6 +74,160 @@ export class ReservaService {
     return todas.filter((f) => f.disponible && f.hora_inicio !== horaExcluida);
   }
 
+  static sincronizarDisponibilidadLocal(fecha, franjas) {
+    if (!Array.isArray(franjas) || !isValidFechaISO(fecha)) return;
+    try {
+      const db = CanchaDB.load();
+      for (const f of franjas) {
+        if (f.estado === 'Ocupada' || f.estado === 'Ocupado' || f.estado === 'En proceso') {
+          const existe = db.reservas.find(
+            (r) => r.fecha_reserva === fecha && r.hora_inicio === f.hora_inicio && r.estado !== 'Cancelada'
+          );
+          if (!existe) {
+            db.reservas.push({
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              codigo_reserva: `CAN-${f.hora_inicio.replace(':', '')}`,
+              cancha_id: 1,
+              cliente_nombre: 'Horario reservado',
+              cliente_telefono: '8888-0000',
+              fecha_reserva: fecha,
+              hora_inicio: f.hora_inicio,
+              hora_fin: f.hora_fin,
+              metodo_pago_previsto: 'SINPE Móvil',
+              estado: f.estado === 'Ocupada' || f.estado === 'Ocupado' ? 'Confirmada' : 'Pendiente',
+              monto_total: f.precio || TARIFA_OFICIAL_CRC,
+              motivo_cancelacion: null,
+              notas: null,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
+        if (f.estado === 'Mantenimiento' && f.motivo) {
+          const existeB = db.bloqueos_horario.find(
+            (b) => b.fecha === fecha && b.hora_inicio === f.hora_inicio
+          );
+          if (!existeB) {
+            db.bloqueos_horario.push({
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              cancha_id: 1,
+              fecha,
+              hora_inicio: f.hora_inicio,
+              hora_fin: f.hora_fin,
+              motivo: f.motivo,
+              usuario_id: 1,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
+      }
+      CanchaDB.save(db);
+    } catch (e) {
+      console.warn('Error al sincronizar disponibilidad local:', e);
+    }
+  }
+
+  static async verificarDisponibilidadAsync(fecha) {
+    const fechaSegura = isValidFechaISO(fecha) ? fecha : '2026-11-06';
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch(`/api/disponibilidad?fecha=${encodeURIComponent(fechaSegura)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            this.sincronizarDisponibilidadLocal(fechaSegura, data);
+            return data.map((f) => {
+              const isDisp = f.estado === 'Disponible' || f.estado === 'Libre';
+              let normEstado = 'Libre';
+              if (f.estado === 'Ocupada' || f.estado === 'Ocupado') normEstado = 'Ocupado';
+              else if (f.estado === 'En proceso') normEstado = 'En proceso';
+              else if (f.estado === 'Mantenimiento') normEstado = 'Mantenimiento';
+              else if (isDisp) normEstado = 'Libre';
+
+              return {
+                ...f,
+                fecha: fechaSegura,
+                disponible: isDisp,
+                estado: normEstado,
+                motivo_bloqueo: f.motivo || null
+              };
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Fallo de red en verificarDisponibilidadAsync, usando motor local:', e);
+      }
+    }
+    return this.verificarDisponibilidad(fechaSegura);
+  }
+
+  static async verificarDisponibilidadRangoAsync(desde, hasta) {
+    if (typeof window !== 'undefined' && isValidFechaISO(desde) && isValidFechaISO(hasta)) {
+      try {
+        const res = await fetch(
+          `/api/disponibilidad?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.reservas)) {
+            const db = CanchaDB.load();
+            for (const r of data.reservas) {
+              const idx = db.reservas.findIndex(
+                (lr) => lr.fecha_reserva === r.fecha_reserva && lr.hora_inicio === r.hora_inicio
+              );
+              if (idx >= 0) {
+                db.reservas[idx].estado = r.estado;
+              } else {
+                db.reservas.push({
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  codigo_reserva: `CAN-${r.hora_inicio.replace(':', '')}`,
+                  cancha_id: 1,
+                  cliente_nombre: 'Horario reservado',
+                  cliente_telefono: '8888-0000',
+                  fecha_reserva: r.fecha_reserva,
+                  hora_inicio: r.hora_inicio,
+                  hora_fin: `${String(parseInt(r.hora_inicio) + 1).padStart(2, '0')}:00`,
+                  metodo_pago_previsto: 'SINPE Móvil',
+                  estado: r.estado,
+                  monto_total: TARIFA_OFICIAL_CRC,
+                  motivo_cancelacion: null,
+                  notas: null,
+                  created_at: new Date().toISOString()
+                });
+              }
+            }
+            if (Array.isArray(data.bloqueos)) {
+              for (const b of data.bloqueos) {
+                const bIdx = db.bloqueos_horario.findIndex(
+                  (lb) => lb.fecha === b.fecha && lb.hora_inicio === b.hora_inicio
+                );
+                if (bIdx === -1) {
+                  db.bloqueos_horario.push({
+                    id: Date.now() + Math.floor(Math.random() * 1000),
+                    cancha_id: 1,
+                    fecha: b.fecha,
+                    hora_inicio: b.hora_inicio,
+                    hora_fin: `${String(parseInt(b.hora_inicio) + 1).padStart(2, '0')}:00`,
+                    motivo: b.motivo,
+                    usuario_id: 1,
+                    created_at: new Date().toISOString()
+                  });
+                }
+              }
+            }
+            CanchaDB.save(db);
+          }
+        }
+      } catch (e) {
+        console.warn('Fallo de red al consultar rango de disponibilidad:', e);
+      }
+    }
+  }
+
+  static async obtenerAlternativasDisponiblesAsync(fecha, horaExcluida) {
+    const todas = await this.verificarDisponibilidadAsync(fecha);
+    return todas.filter((f) => f.disponible && f.hora_inicio !== horaExcluida);
+  }
+
   /**
    * Crea una reserva aplicando validación transaccional atómica anti-colisión,
    * sanitización anti-XSS (A05:2025) y Rate Limiting anti-abuso (A06:2025).
@@ -200,6 +354,117 @@ export class ReservaService {
     };
   }
 
+  static async crearReservaAsync(dto) {
+    const rate = RateLimiter.checkAndRecord('crear_reserva', 6, 60 * 1000);
+    if (!rate.allowed) {
+      return {
+        ok: false,
+        status: 429,
+        error: `Demasiadas solicitudes seguidas. Por seguridad esperá ${rate.retryAfterSec} segundos antes de intentar otra reserva.`
+      };
+    }
+
+    const { nombre, telefono, fecha, hora_inicio, metodo_pago } = dto || {};
+    const nombreSanitizado = sanitizeText(nombre, 80);
+
+    if (!nombreSanitizado || nombreSanitizado.length < 2) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Por favor ingresá un nombre válido (o el nombre de tu equipo).'
+      };
+    }
+
+    const telLimpio = String(telefono || '').replace(/[^\d]/g, '');
+    if (!isValidTelefonoCR(telLimpio)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Por favor ingresá un número de teléfono válido de Costa Rica (8 dígitos).'
+      };
+    }
+
+    if (!isValidFechaISO(fecha) || !isValidHoraOficial(hora_inicio)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Debés seleccionar una fecha válida (YYYY-MM-DD) y una franja horaria oficial (16:00 a 22:00).'
+      };
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const resp = await fetch('/api/reservas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: nombreSanitizado,
+            tel: telLimpio,
+            fecha,
+            hora: hora_inicio,
+            metodo: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
+          })
+        });
+
+        const data = await resp.json();
+
+        if (resp.status === 409) {
+          const alternativas = await this.obtenerAlternativasDisponiblesAsync(fecha, hora_inicio);
+          return {
+            ok: false,
+            status: 409,
+            code: 'COLLISION',
+            error: data.error || 'Horario recién ocupado',
+            message:
+              data.message || 'Otra persona confirmó mientras llenabas tus datos. No se cobró nada.',
+            alternativas
+          };
+        }
+
+        if (resp.ok && data.codigo) {
+          const horaNum = parseInt(hora_inicio.split(':')[0], 10);
+          const hora_fin = `${String(horaNum + 1).padStart(2, '0')}:00`;
+          const telFormateado = `${telLimpio.slice(0, 4)}-${telLimpio.slice(4, 8)}`;
+          const nuevaReserva = {
+            id: data.id || Date.now(),
+            codigo_reserva: data.codigo,
+            cancha_id: 1,
+            cliente_nombre: nombreSanitizado,
+            cliente_telefono: telFormateado,
+            fecha_reserva: fecha,
+            hora_inicio,
+            hora_fin,
+            metodo_pago_previsto: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil',
+            estado: 'Pendiente',
+            monto_total: data.total || TARIFA_OFICIAL_CRC,
+            motivo_cancelacion: null,
+            notas: null,
+            created_at: new Date().toISOString()
+          };
+
+          const db = CanchaDB.load();
+          db.reservas = db.reservas.filter((r) => r.codigo_reserva !== data.codigo);
+          db.reservas.push(nuevaReserva);
+          CanchaDB.save(db);
+
+          return { ok: true, reserva: nuevaReserva };
+        }
+
+        if (!resp.ok) {
+          return {
+            ok: false,
+            status: resp.status,
+            error: data.error || 'No se pudo registrar la reserva en el servidor.'
+          };
+        }
+      } catch (err) {
+        console.warn('Fallo de red al registrar reserva, usando motor local:', err);
+      }
+    }
+
+    return this.crearReserva(dto);
+  }
+
   static consultarPorCodigo(codigo) {
     const limpio = sanitizeText(codigo, 24).toUpperCase();
     if (!limpio) return null;
@@ -208,6 +473,40 @@ export class ReservaService {
     if (!reserva) return null;
     const pago = db.pagos.find((p) => p.reserva_id === reserva.id) || null;
     return { reserva, pago, cancha: db.cancha };
+  }
+
+  static async consultarPorCodigoAsync(codigo) {
+    const limpio = sanitizeText(codigo, 24).toUpperCase();
+    if (!limpio) return null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const resp = await fetch(`/api/reservas/${encodeURIComponent(limpio)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.reserva) {
+            const db = CanchaDB.load();
+            const idx = db.reservas.findIndex((r) => r.codigo_reserva.toUpperCase() === limpio);
+            if (idx >= 0) {
+              db.reservas[idx] = data.reserva;
+            } else {
+              db.reservas.push(data.reserva);
+            }
+            if (data.pago) {
+              const pIdx = db.pagos.findIndex((p) => p.reserva_id === data.reserva.id);
+              if (pIdx >= 0) db.pagos[pIdx] = data.pago;
+              else db.pagos.push(data.pago);
+            }
+            CanchaDB.save(db);
+            return { reserva: data.reserva, pago: data.pago, cancha: db.cancha };
+          }
+        }
+      } catch (e) {
+        console.warn('Fallo de red al consultar reserva por código:', e);
+      }
+    }
+
+    return this.consultarPorCodigo(codigo);
   }
 
   /**
@@ -233,6 +532,36 @@ export class ReservaService {
     }));
   }
 
+  static async consultarPorTelefonoAsync(telefono) {
+    if (!telefono || !String(telefono).trim()) return [];
+    const digitos = String(telefono).replace(/[^\d]/g, '');
+    if (digitos.length !== 8) return [];
+
+    if (typeof window !== 'undefined') {
+      try {
+        const resp = await fetch(`/api/reservas/${encodeURIComponent(digitos)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          const db = CanchaDB.load();
+          if (data && Array.isArray(data.reservas) && data.reservas.length > 0) {
+            return data.reservas.map((item) => ({
+              reserva: item.reserva,
+              pago: item.pago,
+              cancha: db.cancha
+            }));
+          }
+          if (data && data.reserva) {
+            return [{ reserva: data.reserva, pago: data.pago, cancha: db.cancha }];
+          }
+        }
+      } catch (e) {
+        console.warn('Fallo de red al consultar reserva por teléfono:', e);
+      }
+    }
+
+    return this.consultarPorTelefono(telefono);
+  }
+
   static cancelarReserva(id, motivo = 'Cancelada por administración') {
     const db = CanchaDB.load();
     const idx = db.reservas.findIndex((r) => Number(r.id) === Number(id));
@@ -251,6 +580,100 @@ export class ReservaService {
     });
 
     return { ok: true, reserva: db.reservas[idx] };
+  }
+
+  static async cancelarReservaAsync(id, motivo = 'Cancelada por administración', token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        await fetch('/api/admin/reservas', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ action: 'cancelar', id, motivo })
+        });
+      } catch (e) {
+        console.warn('Fallo de red al cancelar en servidor:', e);
+      }
+    }
+    return this.cancelarReserva(id, motivo);
+  }
+
+  static reprogramarReserva(id, nuevaFecha, nuevaHoraInicio) {
+    if (!isValidFechaISO(nuevaFecha) || !isValidHoraOficial(nuevaHoraInicio)) {
+      return { ok: false, error: 'La fecha u hora seleccionada para reprogramar no es válida.' };
+    }
+
+    const db = CanchaDB.load();
+    const idx = db.reservas.findIndex((r) => Number(r.id) === Number(id));
+    if (idx === -1) return { ok: false, error: 'Reserva no encontrada' };
+
+    // Verificar que la nueva fecha y hora no estén ocupadas ni bloqueadas
+    const ocupada = db.reservas.find(
+      (r) =>
+        Number(r.id) !== Number(id) &&
+        r.fecha_reserva === nuevaFecha &&
+        r.hora_inicio === nuevaHoraInicio &&
+        r.estado !== 'Cancelada'
+    );
+    if (ocupada) {
+      return { ok: false, error: 'La nueva franja seleccionada ya está ocupada por otra reserva.' };
+    }
+
+    const bloqueada = db.bloqueos_horario.find(
+      (b) => b.fecha === nuevaFecha && b.hora_inicio === nuevaHoraInicio
+    );
+    if (bloqueada) {
+      return { ok: false, error: `La franja está bloqueada por: ${sanitizeText(bloqueada.motivo, 100)}.` };
+    }
+
+    const horaNum = parseInt(nuevaHoraInicio.split(':')[0], 10);
+    const nuevaHoraFin = `${String(horaNum + 1).padStart(2, '0')}:00`;
+
+    db.reservas[idx].fecha_reserva = nuevaFecha;
+    db.reservas[idx].hora_inicio = nuevaHoraInicio;
+    db.reservas[idx].hora_fin = nuevaHoraFin;
+    if (db.reservas[idx].estado === 'Cancelada') {
+      db.reservas[idx].estado = 'Pendiente';
+    }
+
+    CanchaDB.save(db);
+
+    SecurityAuditLogger.log('RESERVA_REPROGRAMADA', 'INFO', {
+      codigo: db.reservas[idx].codigo_reserva,
+      nuevaFecha,
+      nuevaHoraInicio
+    });
+
+    return { ok: true, reserva: db.reservas[idx] };
+  }
+
+  static async reprogramarReservaAsync(id, nuevaFecha, nuevaHoraInicio, token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/reservas', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            action: 'reprogramar',
+            id,
+            fecha: nuevaFecha,
+            hora: nuevaHoraInicio
+          })
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          return { ok: false, error: err.error || 'Error al reprogramar reserva' };
+        }
+      } catch (e) {
+        console.warn('Fallo de red al reprogramar en servidor:', e);
+      }
+    }
+    return this.reprogramarReserva(id, nuevaFecha, nuevaHoraInicio);
   }
 
   static reprogramarReserva(id, nuevaFecha, nuevaHoraInicio) {
@@ -374,6 +797,33 @@ export class PagoService {
       pago: nuevoPago,
       reserva: db.reservas[reservaIdx]
     };
+  }
+
+  static async registrarPagoAsync(reservaId, dto, token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/pagos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            reserva_id: reservaId,
+            metodo: dto.metodo_pago,
+            monto: dto.monto,
+            comprobante: dto.numero_comprobante
+          })
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          return { ok: false, status: resp.status, error: err.error || 'Error al registrar el pago' };
+        }
+      } catch (e) {
+        console.warn('Fallo de red al registrar pago en servidor:', e);
+      }
+    }
+    return this.registrarPago(reservaId, dto);
   }
 
   static conciliarComprobante(pagoId, numeroComprobante) {
@@ -553,6 +1003,69 @@ export class AgendaManager {
 
     return resultado;
   }
+
+  static async listarBloqueosAsync(token) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/bloqueos', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const list = await resp.json();
+          if (Array.isArray(list)) {
+            const db = CanchaDB.load();
+            db.bloqueos_horario = list;
+            CanchaDB.save(db);
+            return list;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallo de red al listar bloqueos:', e);
+      }
+    }
+    return this.listarBloqueos();
+  }
+
+  static async bloquearHorarioAsync(dto, token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/bloqueos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            fecha: dto.fecha,
+            hora_inicio: dto.hora_inicio,
+            hora_fin: dto.hora_fin,
+            motivo: dto.motivo
+          })
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          return { ok: false, status: resp.status, error: err.error || 'Error al bloquear horario' };
+        }
+      } catch (e) {
+        console.warn('Fallo de red al bloquear en servidor:', e);
+      }
+    }
+    return this.bloquearHorario(dto);
+  }
+
+  static async liberarBloqueoAsync(id, token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        await fetch(`/api/admin/bloqueos?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (e) {
+        console.warn('Fallo de red al eliminar bloqueo en servidor:', e);
+      }
+    }
+    return this.liberarBloqueo(id);
+  }
 }
 
 /**
@@ -703,6 +1216,52 @@ export class DashboardController {
     // UTF-8 BOM para apertura directa en Microsoft Excel con tildes y formato correcto
     return '\uFEFF' + [encabezados.join(','), ...filas].join('\n');
   }
+
+  static async sincronizarDashboardAsync(token) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/dashboard', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && Array.isArray(data.reservas)) {
+            const db = CanchaDB.load();
+            const remoteMap = new Map(data.reservas.map((r) => [r.id, r]));
+            const localRest = db.reservas.filter((r) => !remoteMap.has(r.id));
+            db.reservas = [...data.reservas, ...localRest];
+            CanchaDB.save(db);
+            return data;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback local para sincronizar dashboard:', e);
+      }
+    }
+    return null;
+  }
+
+  static async listarReservasRecientesAsync(token, filtro = {}) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/reservas', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const list = await resp.json();
+          if (Array.isArray(list)) {
+            const db = CanchaDB.load();
+            db.reservas = list;
+            CanchaDB.save(db);
+            return this.listarReservasRecientes(filtro);
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback local para listar reservas:', e);
+      }
+    }
+    return this.listarReservasRecientes(filtro);
+  }
 }
 
 /**
@@ -812,5 +1371,38 @@ export class AuthMiddleware {
       SecurityAuditLogger.log('LOGOUT', 'INFO', { username: current.admin.username });
     }
     CanchaDB.setAuthSession(null);
+  }
+
+  static async loginAsync(usernameInput, passwordInput) {
+    if (typeof window !== 'undefined') {
+      try {
+        const resp = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: usernameInput, password: passwordInput })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.token && data.admin) {
+            const session = {
+              token: data.token,
+              admin: data.admin,
+              exp: data.exp || Math.floor(Date.now() / 1000) + 8 * 3600
+            };
+            CanchaDB.setAuthSession(session);
+            return { ok: true, session };
+          }
+        } else if (resp.status === 401) {
+          return {
+            ok: false,
+            status: 401,
+            error: 'Credenciales inválidas. Verificá tu usuario y contraseña.'
+          };
+        }
+      } catch (e) {
+        console.warn('Fallback local para login:', e);
+      }
+    }
+    return this.iniciarSesion(usernameInput, passwordInput);
   }
 }

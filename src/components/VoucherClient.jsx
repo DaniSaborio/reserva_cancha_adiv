@@ -57,6 +57,15 @@ export default function VoucherClient({ initialCodigo = '' }) {
         info.reserva.metodo_pago_previsto === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
       );
     }
+
+    ReservaService.consultarPorCodigoAsync(cod).then((remoto) => {
+      if (remoto) {
+        setDetalle(remoto);
+        setVarianteVista(
+          remoto.reserva.metodo_pago_previsto === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
+        );
+      }
+    });
   }, [initialCodigo]);
 
   const handleCopiarCodigo = () => {

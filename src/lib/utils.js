@@ -87,3 +87,11 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
 
   return `https://wa.me/?text=${encodeURIComponent(texto)}`;
 }
+
+export function getFechaHoyISO() {
+  try {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' });
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}

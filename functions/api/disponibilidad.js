@@ -23,6 +23,33 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const fecha = url.searchParams.get('fecha');
+  const desde = url.searchParams.get('desde');
+  const hasta = url.searchParams.get('hasta');
+
+  // Soporte para consulta de rango de fechas (Vista Semanal / Mensual)
+  if (desde && hasta && /^\d{4}-\d{2}-\d{2}$/.test(desde) && /^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    if (env && env.DB) {
+      const reservasRes = await env.DB.prepare(
+        "SELECT fecha_reserva, hora_inicio, estado FROM reservas WHERE fecha_reserva >= ? AND fecha_reserva <= ? AND estado != 'Cancelada'"
+      )
+        .bind(desde, hasta)
+        .all();
+
+      const bloqueosRes = await env.DB.prepare(
+        'SELECT fecha, hora_inicio, motivo FROM bloqueos_horario WHERE fecha >= ? AND fecha <= ?'
+      )
+        .bind(desde, hasta)
+        .all();
+
+      return Response.json(
+        {
+          reservas: reservasRes.results || [],
+          bloqueos: bloqueosRes.results || []
+        },
+        { status: 200, headers: SEC_HEADERS }
+      );
+    }
+  }
 
   if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return Response.json(

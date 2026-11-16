@@ -17,6 +17,7 @@ export default function AdminLoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
     const session = AuthMiddleware.verificarToken();
@@ -25,11 +26,13 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setCargando(true);
 
-    const res = AuthMiddleware.validarCredenciales(username, password);
+    const res = await AuthMiddleware.loginAsync(username, password);
+    setCargando(false);
     if (!res.ok) {
       setErrorMsg(res.error || 'Credenciales no válidas.');
       return;

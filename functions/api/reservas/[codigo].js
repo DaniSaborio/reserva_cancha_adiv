@@ -29,10 +29,44 @@ export async function onRequestGet(context) {
     digits.length === 8 ? `${digits.slice(0, 4)}-${digits.slice(4, 8)}` : '__NO_MATCH__';
 
   if (env && env.DB) {
+    if (digits.length === 8) {
+      const reservasRows = await env.DB.prepare(
+        'SELECT * FROM reservas WHERE cliente_telefono = ? ORDER BY fecha_reserva DESC, hora_inicio DESC LIMIT 10'
+      )
+        .bind(telNormalizado)
+        .all();
+
+      const results = reservasRows.results || [];
+      if (!results.length) {
+        return Response.json(
+          { error: 'Reserva no encontrada' },
+          { status: 404, headers: SEC_HEADERS }
+        );
+      }
+
+      const lista = await Promise.all(
+        results.map(async (r) => {
+          const pago = await env.DB.prepare('SELECT * FROM pagos WHERE reserva_id = ? LIMIT 1')
+            .bind(r.id)
+            .first();
+          return { reserva: r, pago: pago || null };
+        })
+      );
+
+      return Response.json(
+        {
+          reserva: lista[0].reserva,
+          pago: lista[0].pago,
+          reservas: lista
+        },
+        { status: 200, headers: SEC_HEADERS }
+      );
+    }
+
     const reserva = await env.DB.prepare(
-      'SELECT * FROM reservas WHERE UPPER(codigo_reserva) = UPPER(?) OR cliente_telefono = ? ORDER BY id DESC LIMIT 1'
+      'SELECT * FROM reservas WHERE UPPER(codigo_reserva) = UPPER(?) LIMIT 1'
     )
-      .bind(rawParam, telNormalizado)
+      .bind(rawParam)
       .first();
 
     if (!reserva) {

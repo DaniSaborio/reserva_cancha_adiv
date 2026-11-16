@@ -63,6 +63,16 @@ export default function AdminReservasPage() {
       busqueda
     });
     setReservas(lista);
+
+    if (ses.token) {
+      DashboardController.listarReservasRecientesAsync(ses.token, {
+        estado: estadoFiltro,
+        metodo: metodoFiltro,
+        busqueda
+      }).then((actualizadas) => {
+        if (actualizadas) setReservas(actualizadas);
+      });
+    }
   }, [estadoFiltro, metodoFiltro, busqueda]);
 
   useEffect(() => {
@@ -110,17 +120,21 @@ export default function AdminReservasPage() {
     );
   }
 
-  const handleConfirmarPago = (e) => {
+  const handleConfirmarPago = async (e) => {
     e.preventDefault();
     if (!reservaPagoActiva) return;
     setMensajeError('');
     setMensajeExito('');
 
-    const res = PagoService.registrarPago(reservaPagoActiva.id, {
-      metodo_pago: metodoPagoForm,
-      monto: reservaPagoActiva.monto_total,
-      numero_comprobante: metodoPagoForm === 'SINPE Móvil' ? comprobanteForm : null
-    });
+    const res = await PagoService.registrarPagoAsync(
+      reservaPagoActiva.id,
+      {
+        metodo_pago: metodoPagoForm,
+        monto: reservaPagoActiva.monto_total,
+        numero_comprobante: metodoPagoForm === 'SINPE Móvil' ? comprobanteForm : null
+      },
+      session?.token
+    );
 
     if (!res.ok) {
       setMensajeError(res.error);
@@ -134,16 +148,17 @@ export default function AdminReservasPage() {
     cargarReservas();
   };
 
-  const handleConfirmarReprogramacion = (e) => {
+  const handleConfirmarReprogramacion = async (e) => {
     e.preventDefault();
     if (!reservaReprogActiva) return;
     setMensajeError('');
     setMensajeExito('');
 
-    const res = ReservaService.reprogramarReserva(
+    const res = await ReservaService.reprogramarReservaAsync(
       reservaReprogActiva.id,
       nuevaFecha,
-      nuevaHora
+      nuevaHora,
+      session?.token
     );
 
     if (!res.ok) {
@@ -160,15 +175,16 @@ export default function AdminReservasPage() {
     cargarReservas();
   };
 
-  const handleConfirmarCancelacion = (e) => {
+  const handleConfirmarCancelacion = async (e) => {
     e.preventDefault();
     if (!reservaCancelActiva) return;
     setMensajeError('');
     setMensajeExito('');
 
-    const res = ReservaService.cancelarReserva(
+    const res = await ReservaService.cancelarReservaAsync(
       reservaCancelActiva.id,
-      motivoCancelacion
+      motivoCancelacion,
+      session?.token
     );
 
     if (!res.ok) {

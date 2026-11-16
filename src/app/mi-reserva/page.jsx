@@ -25,11 +25,14 @@ export default function MiReservaPage() {
   const [resultados, setResultados] = useState([]);
   const [mensajeError, setMensajeError] = useState('');
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
-  const ejecutarBusquedaCodigo = (cod) => {
+  const ejecutarBusquedaCodigo = async (cod) => {
     setMensajeError('');
     setBusquedaRealizada(true);
-    const res = ReservaService.consultarPorCodigo(cod);
+    setCargando(true);
+    const res = await ReservaService.consultarPorCodigoAsync(cod);
+    setCargando(false);
     if (!res) {
       setResultados([]);
       setMensajeError(`No encontramos ninguna reserva con el código "${cod}". Verificá que esté bien escrito.`);
@@ -38,10 +41,12 @@ export default function MiReservaPage() {
     }
   };
 
-  const ejecutarBusquedaTelefono = (tel) => {
+  const ejecutarBusquedaTelefono = async (tel) => {
     setMensajeError('');
     setBusquedaRealizada(true);
-    const lista = ReservaService.consultarPorTelefono(tel);
+    setCargando(true);
+    const lista = await ReservaService.consultarPorTelefonoAsync(tel);
+    setCargando(false);
     if (!lista.length) {
       setResultados([]);
       setMensajeError(`No encontramos reservas asociadas al teléfono "${tel}".`);

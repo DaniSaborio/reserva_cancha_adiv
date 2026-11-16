@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ReservaService } from '@/lib/services';
-import { formatColones, formatFechaCorta } from '@/lib/utils';
+import { formatColones, formatFechaCorta, getFechaHoyISO } from '@/lib/utils';
 import {
   FaArrowLeft,
   FaMobileScreenButton,
@@ -26,6 +26,7 @@ export default function ReservarPage() {
   const [errorValidacion, setErrorValidacion] = useState('');
   const [colisionInfo, setColisionInfo] = useState(null);
   const [franjasDelDia, setFranjasDelDia] = useState([]);
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -33,6 +34,7 @@ export default function ReservarPage() {
       const f = params.get('fecha');
       const h = params.get('hora');
       if (f) setFecha(f);
+      else setFecha(getFechaHoyISO());
       if (h) setHoraInicio(h);
     }
   }, []);
@@ -40,6 +42,9 @@ export default function ReservarPage() {
   useEffect(() => {
     const disp = ReservaService.verificarDisponibilidad(fecha);
     setFranjasDelDia(disp);
+    ReservaService.verificarDisponibilidadAsync(fecha).then((remotas) => {
+      if (remotas && remotas.length) setFranjasDelDia(remotas);
+    });
   }, [fecha, horaInicio]);
 
   const horaNum = parseInt(horaInicio.split(':')[0], 10) || 16;
@@ -54,18 +59,21 @@ export default function ReservarPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorValidacion('');
     setColisionInfo(null);
+    setEnviando(true);
 
-    const resultado = ReservaService.crearReserva({
+    const resultado = await ReservaService.crearReservaAsync({
       nombre,
       telefono,
       fecha,
       hora_inicio: horaInicio,
       metodo_pago: metodoPago
     });
+
+    setEnviando(false);
 
     if (!resultado.ok) {
       if (resultado.code === 'COLLISION' || resultado.status === 409) {
@@ -323,9 +331,14 @@ export default function ReservarPage() {
 
           <button
             type="submit"
-            className="w-full py-3.5 px-5 rounded-xl bg-cancha-700 hover:bg-cancha-800 text-white font-extrabold text-sm shadow-sm transition-colors"
+            disabled={enviando}
+            className="w-full py-3.5 px-5 rounded-xl bg-cancha-700 hover:bg-cancha-800 disabled:opacity-60 text-white font-extrabold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
           >
-            Confirmar reserva {formatColones(16000)}
+            {enviando ? (
+              <span>Confirmando con ADI Venecia...</span>
+            ) : (
+              <span>Confirmar reserva {formatColones(16000)}</span>
+            )}
           </button>
         </form>
 

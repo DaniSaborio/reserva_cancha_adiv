@@ -9,7 +9,7 @@ import {
   ReservaService,
   AuthMiddleware
 } from '@/lib/services';
-import { formatColones, formatDDMMYYYY, formatFechaCorta } from '@/lib/utils';
+import { formatColones, formatDDMMYYYY, formatFechaCorta, getFechaHoyISO } from '@/lib/utils';
 import {
   FaCheck,
   FaClock,
@@ -49,10 +49,23 @@ export default function AdminDashboardPage() {
       : { fecha: fechaActiva };
     const lista = DashboardController.listarReservasRecientes(filtro);
     setReservasDia(lista);
+
+    if (ses && ses.token) {
+      DashboardController.sincronizarDashboardAsync(ses.token).then((data) => {
+        if (data) {
+          setMetricas(DashboardController.obtenerMetricasIngresos(fechaActiva));
+          setReservasDia(DashboardController.listarReservasRecientes(filtro));
+        }
+      });
+    }
   }, [fechaActiva, busqueda]);
 
   useEffect(() => {
     setMounted(true);
+    setFechaActiva(getFechaHoyISO());
+  }, []);
+
+  useEffect(() => {
     recargarDatos();
     const handleUpdate = () => recargarDatos();
     window.addEventListener('cancha-db-updated', handleUpdate);
@@ -63,15 +76,19 @@ export default function AdminDashboardPage() {
     };
   }, [recargarDatos]);
 
-  const handleConfirmarPago = (reserva) => {
+  const handleConfirmarPago = async (reserva) => {
     setAvisoError('');
     setAvisoExito('');
-    const res = PagoService.registrarPago(reserva.id, {
-      metodo_pago: metodoCobro,
-      monto: reserva.monto_total,
-      numero_comprobante: metodoCobro === 'SINPE Móvil' ? comprobanteInput : null,
-      registrado_por: session?.admin?.nombre || 'Carlos Pérez (Encargado)'
-    });
+    const res = await PagoService.registrarPagoAsync(
+      reserva.id,
+      {
+        metodo_pago: metodoCobro,
+        monto: reserva.monto_total,
+        numero_comprobante: metodoCobro === 'SINPE Móvil' ? comprobanteInput : null,
+        registrado_por: session?.admin?.nombre || 'Carlos Pérez (Encargado)'
+      },
+      session?.token
+    );
 
     if (!res.ok) {
       setAvisoError(res.error || 'No se pudo registrar el pago.');
@@ -87,8 +104,12 @@ export default function AdminDashboardPage() {
     recargarDatos();
   };
 
-  const handleCancelarReserva = (reserva) => {
-    ReservaService.cancelarReserva(reserva.id, 'Cancelada desde el panel de control diario');
+  const handleCancelarReserva = async (reserva) => {
+    await ReservaService.cancelarReservaAsync(
+      reserva.id,
+      'Cancelada desde el panel de control diario',
+      session?.token
+    );
     setAvisoExito(
       `Reserva ${reserva.codigo_reserva} cancelada. El horario ${reserva.hora_inicio}–${reserva.hora_fin} quedó libre en el calendario público.`
     );
