@@ -24,20 +24,25 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   try {
     const body = await request.json();
-    const { nombre, tel, fecha, hora, metodo } = body || {};
+    const { nombre, tel, fecha, hora, metodo, cantidad_personas } = body || {};
 
     const nombreSanitizado = String(nombre || '')
       .replace(/[\u0000-\u001F\u007F<>]/g, '')
       .trim()
       .slice(0, 80);
     const telDigitos = String(tel || '').replace(/[^\d]/g, '');
+    const personasNum = Number.isInteger(Number(cantidad_personas))
+      ? Number(cantidad_personas)
+      : 10;
 
     if (
       !nombreSanitizado ||
       nombreSanitizado.length < 2 ||
       !/^[245678]\d{7}$/.test(telDigitos) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ||
-      !HORAS_OFICIALES.includes(hora)
+      !HORAS_OFICIALES.includes(hora) ||
+      personasNum < 1 ||
+      personasNum > 30
     ) {
       return Response.json(
         { error: 'Datos incompletos o con formato inválido para procesar la reserva.' },
@@ -50,21 +55,35 @@ export async function onRequestPost(context) {
     const codigo = `CAN-2026-${secureCodeSuffix()}`;
     const telFormateado = `${telDigitos.slice(0, 4)}-${telDigitos.slice(4, 8)}`;
     const metodoSeguro = metodo === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil';
-    // A08:2025 - La tarifa se obtiene desde la tabla canchas en Cloudflare D1 (configurada por Tesorería/Admin)
-    let montoTotal = Number(env?.TARIFA_POR_HORA) || 16000.0;
+    // A08:2025 - La tarifa se obtiene desde la tabla canchas en Cloudflare D1 (por persona o por cancha)
+    let tipoCobro = 'por_persona';
+    let precioUnitario = 1500.0;
+    let montoTotal = precioUnitario * personasNum;
 
     if (env && env.DB) {
       try {
+        await env.DB.prepare(
+          'ALTER TABLE reservas ADD COLUMN cantidad_personas INTEGER NOT NULL DEFAULT 10'
+        ).run();
+      } catch {}
+
+      try {
         const canchaRow = await env.DB.prepare(
-          'SELECT tarifa_diurna, tarifa_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+          'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna FROM canchas WHERE id = 1 LIMIT 1'
         ).first();
         if (canchaRow) {
+          tipoCobro = canchaRow.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
           const esDiurna = hora === '16:00' || hora === '17:00';
-          const precioCancha = esDiurna
-            ? Number(canchaRow.tarifa_diurna)
-            : Number(canchaRow.tarifa_nocturna);
-          if (precioCancha > 0) {
-            montoTotal = precioCancha;
+          if (tipoCobro === 'por_cancha') {
+            precioUnitario = esDiurna
+              ? Number(canchaRow.tarifa_diurna) || 16000
+              : Number(canchaRow.tarifa_nocturna) || 16000;
+            montoTotal = precioUnitario;
+          } else {
+            precioUnitario = esDiurna
+              ? Number(canchaRow.precio_persona_diurna) || 1500
+              : Number(canchaRow.precio_persona_nocturna) || 1500;
+            montoTotal = precioUnitario * personasNum;
           }
         }
       } catch {}
@@ -88,8 +107,8 @@ export async function onRequestPost(context) {
 
       try {
         const res = await env.DB.prepare(
-          `INSERT INTO reservas (codigo_reserva, cancha_id, cliente_nombre, cliente_telefono, fecha_reserva, hora_inicio, hora_fin, metodo_pago_previsto, estado, monto_total)
-           VALUES (?, 1, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)`
+          `INSERT INTO reservas (codigo_reserva, cancha_id, cliente_nombre, cliente_telefono, fecha_reserva, hora_inicio, hora_fin, metodo_pago_previsto, estado, cantidad_personas, monto_total)
+           VALUES (?, 1, ?, ?, ?, ?, ?, ?, 'Pendiente', ?, ?)`
         )
           .bind(
             codigo,
@@ -99,12 +118,21 @@ export async function onRequestPost(context) {
             hora,
             horaFin,
             metodoSeguro,
+            personasNum,
             montoTotal
           )
           .run();
 
         return Response.json(
-          { codigo, id: res.meta?.last_row_id || 1, total: montoTotal, status: 'Pendiente' },
+          {
+            codigo,
+            id: res.meta?.last_row_id || 1,
+            total: montoTotal,
+            cantidad_personas: personasNum,
+            tipo_cobro: tipoCobro,
+            precio_unitario: precioUnitario,
+            status: 'Pendiente'
+          },
           { status: 201, headers: SEC_HEADERS }
         );
       } catch {
@@ -119,7 +147,14 @@ export async function onRequestPost(context) {
     }
 
     return Response.json(
-      { codigo, id: Date.now(), total: montoTotal },
+      {
+        codigo,
+        id: Date.now(),
+        total: montoTotal,
+        cantidad_personas: personasNum,
+        tipo_cobro: tipoCobro,
+        precio_unitario: precioUnitario
+      },
       { status: 201, headers: SEC_HEADERS }
     );
   } catch {

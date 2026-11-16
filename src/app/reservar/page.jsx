@@ -12,7 +12,11 @@ import {
   FaCircleExclamation,
   FaHandPointRight,
   FaShieldHalved,
-  FaCheck
+  FaCheck,
+  FaUsers,
+  FaMinus,
+  FaPlus,
+  FaCalculator
 } from 'react-icons/fa6';
 
 export default function ReservarPage() {
@@ -22,6 +26,7 @@ export default function ReservarPage() {
   const [horaInicio, setHoraInicio] = useState('16:00');
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [cantidadPersonas, setCantidadPersonas] = useState(10);
   const [metodoPago, setMetodoPago] = useState('SINPE Móvil');
   const [errorValidacion, setErrorValidacion] = useState('');
   const [colisionInfo, setColisionInfo] = useState(null);
@@ -50,7 +55,13 @@ export default function ReservarPage() {
   const horaNum = parseInt(horaInicio.split(':')[0], 10) || 16;
   const horaFin = `${String(horaNum + 1).padStart(2, '0')}:00`;
   const franjaSeleccionada = franjasDelDia.find((f) => f.hora_inicio === horaInicio);
-  const precioSeleccionado = Number(franjaSeleccionada?.precio) || 16000;
+  const tipoCobro =
+    franjaSeleccionada?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+  const precioUnitario =
+    Number(franjaSeleccionada?.precio) || (tipoCobro === 'por_persona' ? 1500 : 16000);
+  const personasValidas = Math.min(30, Math.max(1, Number(cantidadPersonas) || 1));
+  const totalEstimado =
+    tipoCobro === 'por_persona' ? precioUnitario * personasValidas : precioUnitario;
 
   const handleTelefonoChange = (e) => {
     const digits = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
@@ -72,7 +83,8 @@ export default function ReservarPage() {
       telefono,
       fecha,
       hora_inicio: horaInicio,
-      metodo_pago: metodoPago
+      metodo_pago: metodoPago,
+      cantidad_personas: personasValidas
     });
 
     setEnviando(false);
@@ -207,7 +219,8 @@ export default function ReservarPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500">Turno seleccionado:</p>
               <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 capitalize">
-                {formatFechaCorta(fecha)} · {horaInicio}-{horaFin} · {formatColones(precioSeleccionado)}
+                {formatFechaCorta(fecha)} · {horaInicio}-{horaFin} ·{' '}
+                {formatColones(precioUnitario)} / {tipoCobro === 'por_persona' ? 'persona' : 'hora'}
               </p>
             </div>
             <span className="text-xs font-bold text-cancha-800 bg-emerald-100 px-2.5 py-1 rounded-full">
@@ -245,7 +258,9 @@ export default function ReservarPage() {
                 {franjasDelDia.map((f) => (
                   <option key={f.hora_inicio} value={f.hora_inicio}>
                     {f.label || `${f.hora_inicio}–${f.hora_fin}`} —{' '}
-                    {f.disponible ? `Libre (${formatColones(f.precio || precioSeleccionado)})` : f.estado}
+                    {f.disponible
+                      ? `Libre (${formatColones(f.precio || precioUnitario)}/${tipoCobro === 'por_persona' ? 'pers.' : 'h'})`
+                      : f.estado}
                   </option>
                 ))}
               </select>
@@ -297,6 +312,95 @@ export default function ReservarPage() {
             />
           </div>
 
+          {/* Cantidad de personas y cálculo de suma estimada */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label
+                htmlFor="cantidad-personas"
+                className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5"
+              >
+                <FaUsers className="w-3.5 h-3.5 text-cancha-700" />
+                <span>¿Cuántas personas asistirán? *</span>
+              </label>
+              <span className="text-[11px] font-bold text-cancha-800 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
+                {tipoCobro === 'por_persona'
+                  ? `${formatColones(precioUnitario)} por persona`
+                  : `Tarifa fija ${formatColones(precioUnitario)}`}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setCantidadPersonas((p) => Math.max(1, (Number(p) || 1) - 1))}
+                  className="px-3 py-2.5 text-slate-600 hover:bg-slate-100 transition-colors"
+                  aria-label="Restar una persona"
+                >
+                  <FaMinus className="w-3 h-3" />
+                </button>
+                <input
+                  id="cantidad-personas"
+                  type="number"
+                  min={1}
+                  max={30}
+                  required
+                  value={cantidadPersonas}
+                  onChange={(e) => setCantidadPersonas(e.target.value)}
+                  className="w-16 text-center py-2 text-sm font-black text-slate-900 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCantidadPersonas((p) => Math.min(30, (Number(p) || 1) + 1))}
+                  className="px-3 py-2.5 text-slate-600 hover:bg-slate-100 transition-colors"
+                  aria-label="Sumar una persona"
+                >
+                  <FaPlus className="w-3 h-3" />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[8, 10, 12, 14, 16].map((cant) => (
+                  <button
+                    key={cant}
+                    type="button"
+                    onClick={() => setCantidadPersonas(cant)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                      Number(cantidadPersonas) === cant
+                        ? 'bg-cancha-800 text-white border-cancha-800'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {cant} jug.
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Suma estimada en tiempo real */}
+            <div className="rounded-xl bg-white border border-emerald-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <FaCalculator className="w-3.5 h-3.5 text-cancha-700 shrink-0" />
+                <span>
+                  {tipoCobro === 'por_persona' ? (
+                    <>
+                      <strong className="text-slate-900">Suma estimada:</strong> {personasValidas}{' '}
+                      {personasValidas === 1 ? 'persona' : 'personas'} × {formatColones(precioUnitario)}
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-slate-900">Tarifa por cancha:</strong> {personasValidas}{' '}
+                      {personasValidas === 1 ? 'asistente' : 'asistentes'} registrados
+                    </>
+                  )}
+                </span>
+              </div>
+              <span className="text-base sm:text-lg font-black text-cancha-900">
+                {formatColones(totalEstimado)}
+              </span>
+            </div>
+          </div>
+
           <div>
             <span className="block text-xs font-extrabold text-slate-700 mb-2">
               ¿Cómo pensás pagar? *
@@ -340,7 +444,10 @@ export default function ReservarPage() {
             {enviando ? (
               <span>Confirmando con ADI Venecia...</span>
             ) : (
-              <span>Confirmar reserva {formatColones(precioSeleccionado)}</span>
+              <span>
+                Confirmar reserva · {tipoCobro === 'por_persona' ? 'Est. ' : ''}
+                {formatColones(totalEstimado)}
+              </span>
             )}
           </button>
         </form>

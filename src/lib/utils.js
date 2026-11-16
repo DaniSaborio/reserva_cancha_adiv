@@ -79,11 +79,14 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
     `*Fecha:* ${formatFechaCorta(reserva.fecha_reserva)}`,
     `*Hora:* ${reserva.hora_inicio}–${reserva.hora_fin}`,
     `*Titular / Equipo:* ${reserva.cliente_nombre}`,
-    `*Monto:* ${formatColones(reserva.monto_total)}`,
+    reserva.cantidad_personas ? `*Asistentes:* ${reserva.cantidad_personas} personas` : null,
+    `*${reserva.cantidad_personas ? 'Monto estimado' : 'Monto'}:* ${formatColones(reserva.monto_total)}`,
     `*Estado:* ${estadoPago}`,
     ``,
     `${instrucciones}`
-  ].join('\n');
+  ]
+    .filter((line) => line !== null)
+    .join('\n');
 
   return `https://wa.me/?text=${encodeURIComponent(texto)}`;
 }

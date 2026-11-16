@@ -10,13 +10,13 @@ const SEC_HEADERS = {
 };
 
 const FRANJAS_OFICIALES = [
-  { hora_inicio: '16:00', hora_fin: '17:00', label: '16:00–17:00', precio: 16000 },
-  { hora_inicio: '17:00', hora_fin: '18:00', label: '17:00–18:00', precio: 16000 },
-  { hora_inicio: '18:00', hora_fin: '19:00', label: '18:00–19:00', precio: 16000 },
-  { hora_inicio: '19:00', hora_fin: '20:00', label: '19:00–20:00', precio: 16000 },
-  { hora_inicio: '20:00', hora_fin: '21:00', label: '20:00–21:00', precio: 16000 },
-  { hora_inicio: '21:00', hora_fin: '22:00', label: '21:00–22:00', precio: 16000 },
-  { hora_inicio: '22:00', hora_fin: '23:00', label: '22:00–23:00', precio: 16000 }
+  { hora_inicio: '16:00', hora_fin: '17:00', label: '16:00–17:00', precio: 1500 },
+  { hora_inicio: '17:00', hora_fin: '18:00', label: '17:00–18:00', precio: 1500 },
+  { hora_inicio: '18:00', hora_fin: '19:00', label: '18:00–19:00', precio: 1500 },
+  { hora_inicio: '19:00', hora_fin: '20:00', label: '19:00–20:00', precio: 1500 },
+  { hora_inicio: '20:00', hora_fin: '21:00', label: '20:00–21:00', precio: 1500 },
+  { hora_inicio: '21:00', hora_fin: '22:00', label: '21:00–22:00', precio: 1500 },
+  { hora_inicio: '22:00', hora_fin: '23:00', label: '22:00–23:00', precio: 1500 }
 ];
 
 export async function onRequestGet(context) {
@@ -26,23 +26,55 @@ export async function onRequestGet(context) {
   const desde = url.searchParams.get('desde');
   const hasta = url.searchParams.get('hasta');
 
-  let tarifaDiurna = 16000;
-  let tarifaNocturna = 16000;
+  let tipoCobro = 'por_persona';
+  let precioDiurno = 1500;
+  let precioNocturno = 1500;
+
   if (env && env.DB) {
     try {
+      await env.DB.prepare(
+        "ALTER TABLE canchas ADD COLUMN tipo_cobro TEXT NOT NULL DEFAULT 'por_persona'"
+      ).run();
+    } catch {}
+    try {
+      await env.DB.prepare(
+        'ALTER TABLE canchas ADD COLUMN precio_persona_diurna REAL NOT NULL DEFAULT 1500.0'
+      ).run();
+    } catch {}
+    try {
+      await env.DB.prepare(
+        'ALTER TABLE canchas ADD COLUMN precio_persona_nocturna REAL NOT NULL DEFAULT 1500.0'
+      ).run();
+    } catch {}
+
+    try {
       const canchaRow = await env.DB.prepare(
-        'SELECT tarifa_diurna, tarifa_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+        'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna FROM canchas WHERE id = 1 LIMIT 1'
       ).first();
       if (canchaRow) {
-        if (Number(canchaRow.tarifa_diurna) > 0) tarifaDiurna = Number(canchaRow.tarifa_diurna);
-        if (Number(canchaRow.tarifa_nocturna) > 0) tarifaNocturna = Number(canchaRow.tarifa_nocturna);
+        tipoCobro = canchaRow.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+        if (tipoCobro === 'por_cancha') {
+          precioDiurno = Number(canchaRow.tarifa_diurna) > 0 ? Number(canchaRow.tarifa_diurna) : 16000;
+          precioNocturno =
+            Number(canchaRow.tarifa_nocturna) > 0 ? Number(canchaRow.tarifa_nocturna) : 16000;
+        } else {
+          precioDiurno =
+            Number(canchaRow.precio_persona_diurna) > 0
+              ? Number(canchaRow.precio_persona_diurna)
+              : 1500;
+          precioNocturno =
+            Number(canchaRow.precio_persona_nocturna) > 0
+              ? Number(canchaRow.precio_persona_nocturna)
+              : 1500;
+        }
       }
     } catch {}
   }
 
   const franjasConPrecio = FRANJAS_OFICIALES.map((f) => ({
     ...f,
-    precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tarifaDiurna : tarifaNocturna
+    tipo_cobro: tipoCobro,
+    precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? precioDiurno : precioNocturno
   }));
 
   // Soporte para consulta de rango de fechas (Vista Semanal / Mensual)
@@ -64,8 +96,9 @@ export async function onRequestGet(context) {
         {
           reservas: reservasRes.results || [],
           bloqueos: bloqueosRes.results || [],
-          tarifa_diurna: tarifaDiurna,
-          tarifa_nocturna: tarifaNocturna
+          tipo_cobro: tipoCobro,
+          precio_diurno: precioDiurno,
+          precio_nocturno: precioNocturno
         },
         { status: 200, headers: SEC_HEADERS }
       );

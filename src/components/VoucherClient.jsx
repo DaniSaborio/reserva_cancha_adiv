@@ -174,8 +174,20 @@ export default function VoucherClient({ initialCodigo = '' }) {
               <strong className="text-slate-900">Jugador / Equipo:</strong> {reserva.cliente_nombre}{' '}
               ({reserva.cliente_telefono})
             </p>
+            {reserva.cantidad_personas && (
+              <p>
+                <strong className="text-slate-900">Asistentes estimados:</strong>{' '}
+                {reserva.cantidad_personas}{' '}
+                {Number(reserva.cantidad_personas) === 1 ? 'persona' : 'personas'}
+                {reserva.tipo_cobro === 'por_persona' && reserva.precio_unitario
+                  ? ` (${formatColones(reserva.precio_unitario)} c/u)`
+                  : ''}
+              </p>
+            )}
             <p>
-              <strong className="text-slate-900">Monto:</strong>{' '}
+              <strong className="text-slate-900">
+                {reserva.cantidad_personas ? 'Monto estimado:' : 'Monto:'}
+              </strong>{' '}
               <span className="font-extrabold text-cancha-900">
                 {formatColones(reserva.monto_total)}
               </span>
@@ -255,8 +267,20 @@ export default function VoucherClient({ initialCodigo = '' }) {
               <strong className="text-slate-900">Horario:</strong>{' '}
               {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
             </p>
+            {reserva.cantidad_personas && (
+              <p>
+                <strong className="text-slate-900">Asistentes estimados:</strong>{' '}
+                {reserva.cantidad_personas}{' '}
+                {Number(reserva.cantidad_personas) === 1 ? 'persona' : 'personas'}
+                {reserva.tipo_cobro === 'por_persona' && reserva.precio_unitario
+                  ? ` (${formatColones(reserva.precio_unitario)} c/u)`
+                  : ''}
+              </p>
+            )}
             <p>
-              <strong className="text-slate-900">Monto por cobrar:</strong>{' '}
+              <strong className="text-slate-900">
+                {reserva.cantidad_personas ? 'Monto estimado por cobrar:' : 'Monto por cobrar:'}
+              </strong>{' '}
               <span className="font-extrabold text-slate-900">
                 {formatColones(reserva.monto_total)}
               </span>

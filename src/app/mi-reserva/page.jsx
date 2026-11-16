@@ -200,6 +200,13 @@ export default function MiReservaPage() {
                 <p>
                   <strong className="text-slate-900">Jugador:</strong> {reserva.cliente_nombre}
                 </p>
+                {reserva.cantidad_personas && (
+                  <p>
+                    <strong className="text-slate-900">Asistentes:</strong>{' '}
+                    {reserva.cantidad_personas}{' '}
+                    {Number(reserva.cantidad_personas) === 1 ? 'persona' : 'personas'}
+                  </p>
+                )}
                 <p className="capitalize">
                   <strong className="text-slate-900">Horario:</strong>{' '}
                   {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
@@ -284,6 +291,13 @@ export default function MiReservaPage() {
               <p>
                 <strong className="text-slate-900">Titular:</strong> {reserva.cliente_nombre}
               </p>
+              {reserva.cantidad_personas && (
+                <p>
+                  <strong className="text-slate-900">Asistentes estimados:</strong>{' '}
+                  {reserva.cantidad_personas}{' '}
+                  {Number(reserva.cantidad_personas) === 1 ? 'persona' : 'personas'}
+                </p>
+              )}
             </div>
 
             {/* Mensaje de tranquilidad (UI-08) */}

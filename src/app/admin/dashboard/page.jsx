@@ -42,16 +42,18 @@ export default function AdminDashboardPage() {
 
   // Control de precios de la cancha (habilitado para Tesorero y Administrador)
   const [mostrarPanelTarifa, setMostrarPanelTarifa] = useState(true);
+  const [tipoCobro, setTipoCobro] = useState('por_persona');
   const [modoDiferenciado, setModoDiferenciado] = useState(false);
-  const [tarifaHoraInput, setTarifaHoraInput] = useState(16000);
-  const [tarifaDiurnaInput, setTarifaDiurnaInput] = useState(16000);
-  const [tarifaNocturnaInput, setTarifaNocturnaInput] = useState(16000);
+  const [tarifaHoraInput, setTarifaHoraInput] = useState(1500);
+  const [tarifaDiurnaInput, setTarifaDiurnaInput] = useState(1500);
+  const [tarifaNocturnaInput, setTarifaNocturnaInput] = useState(1500);
   const [guardandoTarifa, setGuardandoTarifa] = useState(false);
 
   const recargarDatos = useCallback(() => {
     const ses = AuthMiddleware.verificarToken();
     setSession(ses);
     const t = TarifaService.obtenerTarifas();
+    setTipoCobro(t.tipo_cobro || 'por_persona');
     setTarifaHoraInput(t.tarifa_hora);
     setTarifaDiurnaInput(t.tarifa_diurna);
     setTarifaNocturnaInput(t.tarifa_nocturna);
@@ -68,6 +70,7 @@ export default function AdminDashboardPage() {
 
     TarifaService.obtenerTarifasAsync().then((remota) => {
       if (remota) {
+        setTipoCobro(remota.tipo_cobro || 'por_persona');
         setTarifaHoraInput(remota.tarifa_hora);
         setTarifaDiurnaInput(remota.tarifa_diurna);
         setTarifaNocturnaInput(remota.tarifa_nocturna);
@@ -150,6 +153,7 @@ export default function AdminDashboardPage() {
 
     const res = await TarifaService.actualizarTarifasAsync(
       {
+        tipo_cobro: tipoCobro,
         modo_diferenciado: modoDiferenciado,
         tarifa_hora: Number(tarifaHoraInput),
         tarifa_diurna: modoDiferenciado ? Number(tarifaDiurnaInput) : Number(tarifaHoraInput),
@@ -165,14 +169,28 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    const unidad = res.tarifas.tipo_cobro === 'por_persona' ? 'persona' : 'hora';
     const textoNuevaTarifa = res.tarifas.modo_diferenciado
-      ? `Diurna (16:00–18:00): ${formatColones(res.tarifas.tarifa_diurna)} / h · Nocturna (18:00–23:00): ${formatColones(res.tarifas.tarifa_nocturna)} / h`
-      : `${formatColones(res.tarifas.tarifa_hora)} por hora en todos los horarios`;
+      ? `Diurna (16:00–18:00): ${formatColones(res.tarifas.tarifa_diurna)} / ${unidad} · Nocturna (18:00–23:00): ${formatColones(res.tarifas.tarifa_nocturna)} / ${unidad}`
+      : `${formatColones(res.tarifas.tarifa_hora)} por ${unidad} en todos los horarios`;
 
     setAvisoExito(
       `Precio de la cancha actualizado correctamente (${textoNuevaTarifa}). Ya está activo en el calendario público.`
     );
     recargarDatos();
+  };
+
+  const handleCambiarTipoCobro = (nuevoTipo) => {
+    setTipoCobro(nuevoTipo);
+    if (nuevoTipo === 'por_persona' && Number(tarifaHoraInput) > 5000) {
+      setTarifaHoraInput(1500);
+      setTarifaDiurnaInput(1500);
+      setTarifaNocturnaInput(1500);
+    } else if (nuevoTipo === 'por_cancha' && Number(tarifaHoraInput) < 5000) {
+      setTarifaHoraInput(16000);
+      setTarifaDiurnaInput(16000);
+      setTarifaNocturnaInput(16000);
+    }
   };
 
   if (!mounted) {
@@ -357,11 +375,11 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Tarifa vigente:{' '}
+                Tarifa vigente ({tipoCobro === 'por_persona' ? 'por persona' : 'por cancha'}):{' '}
                 <strong className="text-cancha-900">
                   {modoDiferenciado
                     ? `Diurna ${formatColones(tarifaDiurnaInput)} · Nocturna ${formatColones(tarifaNocturnaInput)}`
-                    : `${formatColones(tarifaHoraInput)} / hora`}
+                    : `${formatColones(tarifaHoraInput)} / ${tipoCobro === 'por_persona' ? 'persona' : 'hora'}`}
                 </strong>
               </p>
             </div>
@@ -383,34 +401,62 @@ export default function AdminDashboardPage() {
 
         {mostrarPanelTarifa && (
           <form onSubmit={handleGuardarTarifa} className="pt-3 border-t border-slate-100 space-y-4">
-            {/* Selector de modo: tarifa única vs tarifa diferenciada diurna/nocturna */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
-              <span className="text-xs font-bold text-slate-700">
-                Modalidad de cobro por hora:
-              </span>
-              <div className="inline-flex rounded-xl p-1 bg-white border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setModoDiferenciado(false)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                    !modoDiferenciado
-                      ? 'bg-emerald-100 text-cancha-900'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Tarifa única (16:00–23:00)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModoDiferenciado(true)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                    modoDiferenciado
-                      ? 'bg-emerald-100 text-cancha-900'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Diurna / Nocturna
-                </button>
+            {/* Selector de esquema: por persona vs por cancha completa + única vs diurna/nocturna */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                <span className="text-xs font-bold text-slate-700">Tipo de cobro:</span>
+                <div className="inline-flex rounded-xl p-1 bg-white border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarTipoCobro('por_persona')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      tipoCobro === 'por_persona'
+                        ? 'bg-emerald-100 text-cancha-900'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Por persona
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarTipoCobro('por_cancha')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      tipoCobro === 'por_cancha'
+                        ? 'bg-emerald-100 text-cancha-900'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Cancha completa
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                <span className="text-xs font-bold text-slate-700">Modalidad horaria:</span>
+                <div className="inline-flex rounded-xl p-1 bg-white border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setModoDiferenciado(false)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      !modoDiferenciado
+                        ? 'bg-emerald-100 text-cancha-900'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Única (16–23h)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoDiferenciado(true)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      modoDiferenciado
+                        ? 'bg-emerald-100 text-cancha-900'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Diurna / Nocturna
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -422,14 +468,16 @@ export default function AdminDashboardPage() {
                       htmlFor="input-tarifa-unica"
                       className="block text-xs font-extrabold text-slate-700 mb-1"
                     >
-                      Precio por hora (₡ Colones) — Todas las franjas (16:00 a 23:00)
+                      {tipoCobro === 'por_persona'
+                        ? 'Precio por persona (₡ Colones) — Todas las franjas (16:00 a 23:00)'
+                        : 'Precio por hora de cancha (₡ Colones) — Todas las franjas (16:00 a 23:00)'}
                     </label>
                     <input
                       id="input-tarifa-unica"
                       type="number"
-                      min={1000}
+                      min={tipoCobro === 'por_persona' ? 300 : 1000}
                       max={250000}
-                      step={500}
+                      step={tipoCobro === 'por_persona' ? 100 : 500}
                       required
                       value={tarifaHoraInput}
                       onChange={(e) => setTarifaHoraInput(e.target.value)}
@@ -438,7 +486,10 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {[12000, 14000, 15000, 16000, 18000, 20000].map((monto) => (
+                    {(tipoCobro === 'por_persona'
+                      ? [1000, 1200, 1500, 1600, 2000, 2500]
+                      : [12000, 14000, 15000, 16000, 18000, 20000]
+                    ).map((monto) => (
                       <button
                         key={monto}
                         type="button"
@@ -454,6 +505,15 @@ export default function AdminDashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                {tipoCobro === 'por_persona' && (
+                  <p className="text-[11px] font-semibold text-cancha-800 bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-200/70">
+                    Vista rápida de suma estimada para clientes: 10 personas ={' '}
+                    <strong>{formatColones((Number(tarifaHoraInput) || 0) * 10)}</strong> · 12 personas ={' '}
+                    <strong>{formatColones((Number(tarifaHoraInput) || 0) * 12)}</strong> · 14 personas ={' '}
+                    <strong>{formatColones((Number(tarifaHoraInput) || 0) * 14)}</strong>
+                  </p>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -462,14 +522,15 @@ export default function AdminDashboardPage() {
                     htmlFor="input-tarifa-diurna"
                     className="block text-xs font-extrabold text-slate-700 mb-1"
                   >
-                    Tarifa Diurna (16:00 a 18:00) — ₡ Colones
+                    Tarifa Diurna (16:00 a 18:00) — ₡{' '}
+                    {tipoCobro === 'por_persona' ? 'por persona' : 'por hora'}
                   </label>
                   <input
                     id="input-tarifa-diurna"
                     type="number"
-                    min={1000}
+                    min={tipoCobro === 'por_persona' ? 300 : 1000}
                     max={250000}
-                    step={500}
+                    step={tipoCobro === 'por_persona' ? 100 : 500}
                     required
                     value={tarifaDiurnaInput}
                     onChange={(e) => setTarifaDiurnaInput(e.target.value)}
@@ -481,14 +542,15 @@ export default function AdminDashboardPage() {
                     htmlFor="input-tarifa-nocturna"
                     className="block text-xs font-extrabold text-slate-700 mb-1"
                   >
-                    Tarifa Nocturna con Luz LED (18:00 a 23:00) — ₡ Colones
+                    Tarifa Nocturna Luz LED (18:00 a 23:00) — ₡{' '}
+                    {tipoCobro === 'por_persona' ? 'por persona' : 'por hora'}
                   </label>
                   <input
                     id="input-tarifa-nocturna"
                     type="number"
-                    min={1000}
+                    min={tipoCobro === 'por_persona' ? 300 : 1000}
                     max={250000}
-                    step={500}
+                    step={tipoCobro === 'por_persona' ? 100 : 500}
                     required
                     value={tarifaNocturnaInput}
                     onChange={(e) => setTarifaNocturnaInput(e.target.value)}
@@ -671,6 +733,11 @@ export default function AdminDashboardPage() {
                         </div>
                         <p className="text-sm font-extrabold text-slate-900">
                           {res.cliente_nombre}
+                          {res.cantidad_personas ? (
+                            <span className="ml-2 text-xs font-bold text-slate-500">
+                              ({res.cantidad_personas} pers.)
+                            </span>
+                          ) : null}
                         </p>
 
                         <div className="pt-0.5">

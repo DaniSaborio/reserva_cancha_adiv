@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS canchas (
   nombre TEXT NOT NULL,
   tarifa_diurna REAL NOT NULL DEFAULT 14000.00,
   tarifa_nocturna REAL NOT NULL DEFAULT 16000.00,
+  tipo_cobro TEXT NOT NULL DEFAULT 'por_persona' CHECK(tipo_cobro IN ('por_persona', 'por_cancha')),
+  precio_persona_diurna REAL NOT NULL DEFAULT 1500.00,
+  precio_persona_nocturna REAL NOT NULL DEFAULT 1500.00,
   estado TEXT NOT NULL DEFAULT 'activa' CHECK(estado IN ('activa', 'mantenimiento', 'inactiva')),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS reservas (
   hora_fin TEXT NOT NULL,      -- Formato HH:MM (17:00 a 23:00)
   metodo_pago_previsto TEXT NOT NULL DEFAULT 'SINPE Móvil' CHECK(metodo_pago_previsto IN ('Efectivo', 'SINPE Móvil')),
   estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK(estado IN ('Pendiente', 'Confirmada', 'Cancelada')),
+  cantidad_personas INTEGER NOT NULL DEFAULT 10,
   monto_total REAL NOT NULL DEFAULT 16000.00,
   motivo_cancelacion TEXT,
   notas TEXT,

@@ -111,18 +111,20 @@ async function handleApiRequest(req, res, urlObj) {
         .map((b) => [b.hora_inicio, b.motivo])
     );
 
+    const tipoCobro = localD1.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
     const resultado = localD1.franjas_oficiales.map((f) => {
       if (bloqueosMap.has(f.hora_inicio)) {
-        return { ...f, estado: 'Mantenimiento', motivo: bloqueosMap.get(f.hora_inicio) };
+        return { ...f, tipo_cobro: tipoCobro, estado: 'Mantenimiento', motivo: bloqueosMap.get(f.hora_inicio) };
       }
       if (reservasMap.has(f.hora_inicio)) {
         const est = reservasMap.get(f.hora_inicio);
         return {
           ...f,
+          tipo_cobro: tipoCobro,
           estado: est === 'Confirmada' ? 'Ocupada' : 'En proceso'
         };
       }
-      return { ...f, estado: 'Disponible' };
+      return { ...f, tipo_cobro: tipoCobro, estado: 'Disponible' };
     });
     return sendJson(res, 200, resultado);
   }
@@ -131,19 +133,24 @@ async function handleApiRequest(req, res, urlObj) {
   if (pathname === '/api/reservas' && method === 'POST') {
     try {
       const body = await readJsonBody(req);
-      const { nombre, tel, fecha, hora, metodo } = body || {};
+      const { nombre, tel, fecha, hora, metodo, cantidad_personas } = body || {};
       const nombreSanitizado = String(nombre || '')
         .replace(/[\u0000-\u001F\u007F<>]/g, '')
         .trim()
         .slice(0, 80);
       const telDigitos = String(tel || '').replace(/[^\d]/g, '');
+      const personasNum = Number.isInteger(Number(cantidad_personas))
+        ? Number(cantidad_personas)
+        : 10;
 
       if (
         !nombreSanitizado ||
         nombreSanitizado.length < 2 ||
         !/^[245678]\d{7}$/.test(telDigitos) ||
         !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ||
-        !HORAS_OFICIALES.includes(hora)
+        !HORAS_OFICIALES.includes(hora) ||
+        personasNum < 1 ||
+        personasNum > 30
       ) {
         return sendJson(res, 400, {
           error: 'Datos incompletos o con formato inválido para procesar la reserva.'
@@ -186,7 +193,17 @@ async function handleApiRequest(req, res, urlObj) {
       const horaFin = `${String(horaNum + 1).padStart(2, '0')}:00`;
       const telFormateado = `${telDigitos.slice(0, 4)}-${telDigitos.slice(4, 8)}`;
       const metodoSeguro = metodo === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil';
-      const montoTotal = 16000;
+      const tipoCobro = localD1.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+      const esDiurna = hora === '16:00' || hora === '17:00';
+      const precioUnitario =
+        tipoCobro === 'por_cancha'
+          ? esDiurna
+            ? Number(localD1.cancha?.tarifa_diurna) || Number(localD1.cancha?.tarifa_hora) || 16000
+            : Number(localD1.cancha?.tarifa_nocturna) || Number(localD1.cancha?.tarifa_hora) || 16000
+          : esDiurna
+          ? Number(localD1.cancha?.precio_persona_diurna) || 1500
+          : Number(localD1.cancha?.precio_persona_nocturna) || 1500;
+      const montoTotal = tipoCobro === 'por_persona' ? precioUnitario * personasNum : precioUnitario;
 
       const nuevaReserva = {
         id,
@@ -199,6 +216,9 @@ async function handleApiRequest(req, res, urlObj) {
         hora_fin: horaFin,
         metodo_pago_previsto: metodoSeguro,
         estado: 'Pendiente',
+        cantidad_personas: personasNum,
+        tipo_cobro: tipoCobro,
+        precio_unitario: precioUnitario,
         monto_total: montoTotal,
         created_at: new Date().toISOString()
       };
@@ -208,6 +228,9 @@ async function handleApiRequest(req, res, urlObj) {
         codigo,
         id,
         total: montoTotal,
+        cantidad_personas: personasNum,
+        tipo_cobro: tipoCobro,
+        precio_unitario: precioUnitario,
         estado: 'Pendiente'
       });
     } catch {
@@ -542,15 +565,24 @@ async function handleApiRequest(req, res, urlObj) {
 
   // 11. GET / PATCH /api/admin/tarifas
   if (pathname === '/api/admin/tarifas') {
+    const tipoActual = localD1.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+    const tHora = Number(localD1.cancha?.tarifa_hora) || 16000;
+    const tDiurna = Number(localD1.cancha?.tarifa_diurna) || tHora;
+    const tNocturna = Number(localD1.cancha?.tarifa_nocturna) || tHora;
+    const pDiurna = Number(localD1.cancha?.precio_persona_diurna) || 1500;
+    const pNocturna = Number(localD1.cancha?.precio_persona_nocturna) || 1500;
+
     if (method === 'GET') {
-      const tHora = Number(localD1.cancha?.tarifa_hora) || 16000;
-      const tDiurna = Number(localD1.cancha?.tarifa_diurna) || tHora;
-      const tNocturna = Number(localD1.cancha?.tarifa_nocturna) || tHora;
+      const actDiurna = tipoActual === 'por_persona' ? pDiurna : tDiurna;
+      const actNocturna = tipoActual === 'por_persona' ? pNocturna : tNocturna;
       return sendJson(res, 200, {
-        tarifa_hora: tNocturna,
+        tipo_cobro: tipoActual,
+        tarifa_hora: actNocturna,
         tarifa_diurna: tDiurna,
         tarifa_nocturna: tNocturna,
-        modo_diferenciado: tDiurna !== tNocturna
+        precio_persona_diurna: pDiurna,
+        precio_persona_nocturna: pNocturna,
+        modo_diferenciado: actDiurna !== actNocturna
       });
     }
 
@@ -560,26 +592,41 @@ async function handleApiRequest(req, res, urlObj) {
         return sendJson(res, 403, { error: 'No autorizado' });
       }
       const body = await readJsonBody(req);
+      const nuevoTipo = body.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
       const modoDif = Boolean(body.modo_diferenciado);
-      const tDiurna = Math.round(
-        modoDif ? Number(body.tarifa_diurna) || 16000 : Number(body.tarifa_hora) || 16000
+      const valDiurna = Math.round(
+        modoDif
+          ? Number(body.tarifa_diurna) || (nuevoTipo === 'por_persona' ? 1500 : 16000)
+          : Number(body.tarifa_hora) || (nuevoTipo === 'por_persona' ? 1500 : 16000)
       );
-      const tNocturna = Math.round(
-        modoDif ? Number(body.tarifa_nocturna) || 16000 : Number(body.tarifa_hora) || 16000
+      const valNocturna = Math.round(
+        modoDif
+          ? Number(body.tarifa_nocturna) || (nuevoTipo === 'por_persona' ? 1500 : 16000)
+          : Number(body.tarifa_hora) || (nuevoTipo === 'por_persona' ? 1500 : 16000)
       );
-      localD1.cancha.tarifa_hora = tNocturna;
-      localD1.cancha.tarifa_diurna = tDiurna;
-      localD1.cancha.tarifa_nocturna = tNocturna;
+
+      localD1.cancha.tipo_cobro = nuevoTipo;
+      if (nuevoTipo === 'por_persona') {
+        localD1.cancha.precio_persona_diurna = valDiurna;
+        localD1.cancha.precio_persona_nocturna = valNocturna;
+      } else {
+        localD1.cancha.tarifa_hora = valNocturna;
+        localD1.cancha.tarifa_diurna = valDiurna;
+        localD1.cancha.tarifa_nocturna = valNocturna;
+      }
       localD1.franjas_oficiales = (localD1.franjas_oficiales || []).map((f) => ({
         ...f,
-        precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tDiurna : tNocturna
+        precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? valDiurna : valNocturna
       }));
       return sendJson(res, 200, {
         ok: true,
-        tarifa_hora: tNocturna,
-        tarifa_diurna: tDiurna,
-        tarifa_nocturna: tNocturna,
-        modo_diferenciado: tDiurna !== tNocturna
+        tipo_cobro: nuevoTipo,
+        tarifa_hora: valNocturna,
+        tarifa_diurna: localD1.cancha.tarifa_diurna || 16000,
+        tarifa_nocturna: localD1.cancha.tarifa_nocturna || 16000,
+        precio_persona_diurna: localD1.cancha.precio_persona_diurna || 1500,
+        precio_persona_nocturna: localD1.cancha.precio_persona_nocturna || 1500,
+        modo_diferenciado: valDiurna !== valNocturna
       });
     }
   }

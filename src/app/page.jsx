@@ -177,12 +177,18 @@ export default function HomePage() {
     : `${lunesSemana.getDate()} ${MESES_TITULO[lunesSemana.getMonth()].slice(0, 3)} – ${domingoSemana.getDate()} ${MESES_TITULO[domingoSemana.getMonth()].slice(0, 3)} ${domingoSemana.getFullYear()}`;
 
   const horasLibresHoy = franjasDia.filter((f) => f.disponible).length;
-  const precioDiurnoHoy = franjasDia.find((f) => f.hora_inicio === '16:00')?.precio || 16000;
-  const precioNocturnoHoy = franjasDia.find((f) => f.hora_inicio === '18:00')?.precio || 16000;
+  const tipoCobroHoy =
+    franjasDia.find((f) => f.tipo_cobro)?.tipo_cobro === 'por_cancha'
+      ? 'por_cancha'
+      : 'por_persona';
+  const sufijoTarifa = tipoCobroHoy === 'por_persona' ? 'persona' : 'hora';
+  const precioDefault = tipoCobroHoy === 'por_persona' ? 1500 : 16000;
+  const precioDiurnoHoy = franjasDia.find((f) => f.hora_inicio === '16:00')?.precio || precioDefault;
+  const precioNocturnoHoy = franjasDia.find((f) => f.hora_inicio === '18:00')?.precio || precioDefault;
   const textoTarifaActiva =
     precioDiurnoHoy !== precioNocturnoHoy
-      ? `Diurna ${formatColones(precioDiurnoHoy)} · Nocturna ${formatColones(precioNocturnoHoy)} por hora`
-      : `${formatColones(precioNocturnoHoy)} por hora`;
+      ? `Diurna ${formatColones(precioDiurnoHoy)} · Nocturna ${formatColones(precioNocturnoHoy)} por ${sufijoTarifa}`
+      : `${formatColones(precioNocturnoHoy)} por ${sufijoTarifa}`;
 
   return (
     <div className="space-y-6">
@@ -368,7 +374,7 @@ export default function HomePage() {
                             {labelFranja}
                           </span>
                           <span className="block sm:inline-block sm:ml-3 text-[11px] sm:text-xs font-medium text-slate-500">
-                            Cancha sintética · {formatColones(franja.precio)}
+                            Cancha sintética · {formatColones(franja.precio)} / {sufijoTarifa}
                           </span>
                         </div>
                         <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200 group-hover:bg-cancha-800 group-hover:text-white transition-colors">
@@ -588,7 +594,7 @@ export default function HomePage() {
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500 font-medium">Tarifa</span>
                   <span className="font-extrabold text-cancha-800">
-                    {formatColones(celdaSemanalActiva.precio || 16000)}
+                    {formatColones(celdaSemanalActiva.precio || precioDefault)} / {sufijoTarifa}
                   </span>
                 </div>
               </div>

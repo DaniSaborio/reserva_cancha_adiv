@@ -19,21 +19,29 @@ export default function Header() {
   const [isOnline, setIsOnline] = useState(true);
   const [fontLarge, setFontLarge] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
-  const [tarifaLabel, setTarifaLabel] = useState('₡16 000 / hora');
+  const [tarifaLabel, setTarifaLabel] = useState('₡1 500 / persona');
 
   useEffect(() => {
     const actualizarEtiquetaTarifa = () => {
       try {
         const db = CanchaDB.load();
+        const tipoCobro = db.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+        const sufijo = tipoCobro === 'por_persona' ? 'persona' : 'hora';
         const tHora = Number(db.cancha?.tarifa_hora) || 16000;
-        const tDiurna = Number(db.cancha?.tarifa_diurna) || tHora;
-        const tNocturna = Number(db.cancha?.tarifa_nocturna) || tHora;
-        if (tDiurna !== tNocturna) {
+        const pDiurna =
+          tipoCobro === 'por_persona'
+            ? Number(db.cancha?.precio_persona_diurna) || 1500
+            : Number(db.cancha?.tarifa_diurna) || tHora;
+        const pNocturna =
+          tipoCobro === 'por_persona'
+            ? Number(db.cancha?.precio_persona_nocturna) || 1500
+            : Number(db.cancha?.tarifa_nocturna) || tHora;
+        if (pDiurna !== pNocturna) {
           setTarifaLabel(
-            `₡${tDiurna.toLocaleString('es-CR')}–₡${tNocturna.toLocaleString('es-CR')} / h`
+            `₡${pDiurna.toLocaleString('es-CR')}–₡${pNocturna.toLocaleString('es-CR')} / ${sufijo}`
           );
         } else {
-          setTarifaLabel(`₡${tNocturna.toLocaleString('es-CR')} / hora`);
+          setTarifaLabel(`₡${pNocturna.toLocaleString('es-CR')} / ${sufijo}`);
         }
       } catch {}
     };

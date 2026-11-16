@@ -35,17 +35,28 @@ export class ReservaService {
     );
     const bloqueosFecha = db.bloqueos_horario.filter((b) => b.fecha === fechaSegura);
 
+    const tipoCobro = db.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
     const tarifaGeneral = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
     const tarifaDiurna = Number(db.cancha?.tarifa_diurna) || tarifaGeneral;
     const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaGeneral;
+    const personaDiurna = Number(db.cancha?.precio_persona_diurna) || 1500;
+    const personaNocturna = Number(db.cancha?.precio_persona_nocturna) || 1500;
 
     return db.franjas_oficiales.map((franja) => {
       const esDiurna = franja.hora_inicio === '16:00' || franja.hora_inicio === '17:00';
-      const precioActual = esDiurna ? tarifaDiurna : tarifaNocturna;
+      const precioActual =
+        tipoCobro === 'por_cancha'
+          ? esDiurna
+            ? tarifaDiurna
+            : tarifaNocturna
+          : esDiurna
+          ? personaDiurna
+          : personaNocturna;
       const bloqueo = bloqueosFecha.find((b) => b.hora_inicio === franja.hora_inicio);
       if (bloqueo) {
         return {
           ...franja,
+          tipo_cobro: tipoCobro,
           precio: precioActual,
           fecha: fechaSegura,
           estado: 'Mantenimiento',
@@ -60,6 +71,7 @@ export class ReservaService {
         const esConfirmada = reserva.estado === 'Confirmada';
         return {
           ...franja,
+          tipo_cobro: tipoCobro,
           precio: precioActual,
           fecha: fechaSegura,
           estado: esConfirmada ? 'Ocupado' : 'En proceso',
@@ -70,6 +82,7 @@ export class ReservaService {
 
       return {
         ...franja,
+        tipo_cobro: tipoCobro,
         precio: precioActual,
         fecha: fechaSegura,
         estado: 'Libre',
@@ -87,15 +100,27 @@ export class ReservaService {
     if (!Array.isArray(franjas) || !isValidFechaISO(fecha)) return;
     try {
       const db = CanchaDB.load();
-      // Sincronizar precios si cambiaron en el servidor D1
+      // Sincronizar precios y modalidad de cobro si cambiaron en el servidor D1
       const fDiurna = franjas.find((f) => f.hora_inicio === '16:00');
       const fNocturna = franjas.find((f) => f.hora_inicio === '18:00');
-      if (fDiurna && Number(fDiurna.precio) > 0 && db.cancha) {
-        db.cancha.tarifa_diurna = Number(fDiurna.precio);
+      const tipoRemoto = fDiurna?.tipo_cobro || fNocturna?.tipo_cobro;
+      if (db.cancha && tipoRemoto) {
+        db.cancha.tipo_cobro = tipoRemoto === 'por_cancha' ? 'por_cancha' : 'por_persona';
       }
-      if (fNocturna && Number(fNocturna.precio) > 0 && db.cancha) {
-        db.cancha.tarifa_nocturna = Number(fNocturna.precio);
-        db.cancha.tarifa_hora = Number(fNocturna.precio);
+      if (db.cancha) {
+        const esPorCancha = db.cancha.tipo_cobro === 'por_cancha';
+        if (fDiurna && Number(fDiurna.precio) > 0) {
+          if (esPorCancha) db.cancha.tarifa_diurna = Number(fDiurna.precio);
+          else db.cancha.precio_persona_diurna = Number(fDiurna.precio);
+        }
+        if (fNocturna && Number(fNocturna.precio) > 0) {
+          if (esPorCancha) {
+            db.cancha.tarifa_nocturna = Number(fNocturna.precio);
+            db.cancha.tarifa_hora = Number(fNocturna.precio);
+          } else {
+            db.cancha.precio_persona_nocturna = Number(fNocturna.precio);
+          }
+        }
       }
       db.franjas_oficiales = (db.franjas_oficiales || []).map((fo) => {
         const remota = franjas.find((r) => r.hora_inicio === fo.hora_inicio);
@@ -273,14 +298,25 @@ export class ReservaService {
       };
     }
 
-    const { nombre, telefono, fecha, hora_inicio, metodo_pago } = dto || {};
+    const { nombre, telefono, fecha, hora_inicio, metodo_pago, cantidad_personas } = dto || {};
     const nombreSanitizado = sanitizeText(nombre, 80);
+    const personasNum = Number.isInteger(Number(cantidad_personas))
+      ? Number(cantidad_personas)
+      : 10;
 
     if (!nombreSanitizado || nombreSanitizado.length < 2) {
       return {
         ok: false,
         status: 400,
         error: 'Por favor ingresá un nombre válido (o el nombre de tu equipo).'
+      };
+    }
+
+    if (personasNum < 1 || personasNum > 30) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Indicá una cantidad válida de personas que asistirán (entre 1 y 30).'
       };
     }
 
@@ -350,10 +386,18 @@ export class ReservaService {
 
     // A08:2025 - Integridad de datos: el monto proviene de la tarifa oficial configurada por Tesorería/Admin
     const esDiurna = hora_inicio === '16:00' || hora_inicio === '17:00';
+    const tipoCobro = db.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
     const tarifaBase = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
-    const tarifaSegura = esDiurna
-      ? Number(db.cancha?.tarifa_diurna) || tarifaBase
-      : Number(db.cancha?.tarifa_nocturna) || tarifaBase;
+    const precioUnitario =
+      tipoCobro === 'por_cancha'
+        ? esDiurna
+          ? Number(db.cancha?.tarifa_diurna) || tarifaBase
+          : Number(db.cancha?.tarifa_nocturna) || tarifaBase
+        : esDiurna
+        ? Number(db.cancha?.precio_persona_diurna) || 1500
+        : Number(db.cancha?.precio_persona_nocturna) || 1500;
+    const tarifaSegura =
+      tipoCobro === 'por_persona' ? precioUnitario * personasNum : precioUnitario;
 
     const nuevaReserva = {
       id: Date.now() * 100 + secureRandomInt(10, 99),
@@ -366,6 +410,9 @@ export class ReservaService {
       hora_fin,
       metodo_pago_previsto: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil',
       estado: 'Pendiente',
+      cantidad_personas: personasNum,
+      tipo_cobro: tipoCobro,
+      precio_unitario: precioUnitario,
       monto_total: tarifaSegura,
       created_at: new Date().toISOString()
     };
@@ -397,14 +444,25 @@ export class ReservaService {
       };
     }
 
-    const { nombre, telefono, fecha, hora_inicio, metodo_pago } = dto || {};
+    const { nombre, telefono, fecha, hora_inicio, metodo_pago, cantidad_personas } = dto || {};
     const nombreSanitizado = sanitizeText(nombre, 80);
+    const personasNum = Number.isInteger(Number(cantidad_personas))
+      ? Number(cantidad_personas)
+      : 10;
 
     if (!nombreSanitizado || nombreSanitizado.length < 2) {
       return {
         ok: false,
         status: 400,
         error: 'Por favor ingresá un nombre válido (o el nombre de tu equipo).'
+      };
+    }
+
+    if (personasNum < 1 || personasNum > 30) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Indicá una cantidad válida de personas que asistirán (entre 1 y 30).'
       };
     }
 
@@ -435,7 +493,8 @@ export class ReservaService {
             tel: telLimpio,
             fecha,
             hora: hora_inicio,
-            metodo: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil'
+            metodo: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil',
+            cantidad_personas: personasNum
           })
         });
 
@@ -469,6 +528,9 @@ export class ReservaService {
             hora_fin,
             metodo_pago_previsto: metodo_pago === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil',
             estado: 'Pendiente',
+            cantidad_personas: data.cantidad_personas || personasNum,
+            tipo_cobro: data.tipo_cobro || 'por_persona',
+            precio_unitario: data.precio_unitario || 1500,
             monto_total: data.total || TARIFA_OFICIAL_CRC,
             motivo_cancelacion: null,
             notas: null,
@@ -1844,14 +1906,24 @@ export class UsuarioAdminService {
 export class TarifaService {
   static obtenerTarifas() {
     const db = CanchaDB.load();
+    const tipoCobro = db.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
     const tarifaHora = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
     const tarifaDiurna = Number(db.cancha?.tarifa_diurna) || tarifaHora;
     const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaHora;
+    const personaDiurna = Number(db.cancha?.precio_persona_diurna) || 1500;
+    const personaNocturna = Number(db.cancha?.precio_persona_nocturna) || 1500;
+
+    const activaDiurna = tipoCobro === 'por_persona' ? personaDiurna : tarifaDiurna;
+    const activaNocturna = tipoCobro === 'por_persona' ? personaNocturna : tarifaNocturna;
+
     return {
-      tarifa_hora: tarifaNocturna,
-      tarifa_diurna: tarifaDiurna,
-      tarifa_nocturna: tarifaNocturna,
-      modo_diferenciado: tarifaDiurna !== tarifaNocturna
+      tipo_cobro: tipoCobro,
+      tarifa_hora: activaNocturna,
+      tarifa_diurna: activaDiurna,
+      tarifa_nocturna: activaNocturna,
+      precio_persona_diurna: personaDiurna,
+      precio_persona_nocturna: personaNocturna,
+      modo_diferenciado: activaDiurna !== activaNocturna
     };
   }
 
@@ -1861,25 +1933,38 @@ export class TarifaService {
         const resp = await fetch('/api/admin/tarifas');
         if (resp.ok) {
           const data = await resp.json();
-          if (data && Number(data.tarifa_nocturna) > 0) {
+          if (data && (Number(data.tarifa_nocturna) > 0 || Number(data.precio_persona_nocturna) > 0)) {
             const db = CanchaDB.load();
-            const tDiurna = Number(data.tarifa_diurna) || Number(data.tarifa_nocturna);
-            const tNocturna = Number(data.tarifa_nocturna);
+            const tipoCobro = data.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+            const tDiurna = Number(data.tarifa_diurna) || 16000;
+            const tNocturna = Number(data.tarifa_nocturna) || 16000;
+            const pDiurna = Number(data.precio_persona_diurna) || 1500;
+            const pNocturna = Number(data.precio_persona_nocturna) || 1500;
+
             if (db.cancha) {
+              db.cancha.tipo_cobro = tipoCobro;
               db.cancha.tarifa_hora = tNocturna;
               db.cancha.tarifa_diurna = tDiurna;
               db.cancha.tarifa_nocturna = tNocturna;
+              db.cancha.precio_persona_diurna = pDiurna;
+              db.cancha.precio_persona_nocturna = pNocturna;
             }
+            const activaDiurna = tipoCobro === 'por_persona' ? pDiurna : tDiurna;
+            const activaNocturna = tipoCobro === 'por_persona' ? pNocturna : tNocturna;
+
             db.franjas_oficiales = (db.franjas_oficiales || []).map((f) => ({
               ...f,
-              precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tDiurna : tNocturna
+              precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? activaDiurna : activaNocturna
             }));
             CanchaDB.save(db);
             return {
-              tarifa_hora: tNocturna,
-              tarifa_diurna: tDiurna,
-              tarifa_nocturna: tNocturna,
-              modo_diferenciado: tDiurna !== tNocturna
+              tipo_cobro: tipoCobro,
+              tarifa_hora: activaNocturna,
+              tarifa_diurna: activaDiurna,
+              tarifa_nocturna: activaNocturna,
+              precio_persona_diurna: pDiurna,
+              precio_persona_nocturna: pNocturna,
+              modo_diferenciado: activaDiurna !== activaNocturna
             };
           }
         }
@@ -1891,55 +1976,67 @@ export class TarifaService {
   }
 
   static actualizarTarifas(dto = {}, adminInfo = null) {
+    const tipoCobro = dto.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
     const modoDiferenciado = Boolean(dto.modo_diferenciado);
     const baseHora = Number(dto.tarifa_hora);
     const rawDiurna = modoDiferenciado ? Number(dto.tarifa_diurna) : baseHora;
     const rawNocturna = modoDiferenciado ? Number(dto.tarifa_nocturna) : baseHora;
 
+    const minMonto = tipoCobro === 'por_persona' ? 300 : 1000;
+    const maxMonto = 250000;
+
     if (
       !Number.isFinite(rawDiurna) ||
       !Number.isFinite(rawNocturna) ||
-      rawDiurna < 1000 ||
-      rawDiurna > 250000 ||
-      rawNocturna < 1000 ||
-      rawNocturna > 250000
+      rawDiurna < minMonto ||
+      rawDiurna > maxMonto ||
+      rawNocturna < minMonto ||
+      rawNocturna > maxMonto
     ) {
       return {
         ok: false,
-        error: 'Ingresá un precio válido entre ₡1 000 y ₡250 000 por hora.'
+        error: `Ingresá un precio válido entre ₡${minMonto.toLocaleString('es-CR')} y ₡${maxMonto.toLocaleString('es-CR')}.`
       };
     }
 
-    const tarifaDiurna = Math.round(rawDiurna);
-    const tarifaNocturna = Math.round(rawNocturna);
+    const valorDiurno = Math.round(rawDiurna);
+    const valorNocturno = Math.round(rawNocturna);
 
     const db = CanchaDB.load();
     if (db.cancha) {
-      db.cancha.tarifa_hora = tarifaNocturna;
-      db.cancha.tarifa_diurna = tarifaDiurna;
-      db.cancha.tarifa_nocturna = tarifaNocturna;
+      db.cancha.tipo_cobro = tipoCobro;
+      if (tipoCobro === 'por_persona') {
+        db.cancha.precio_persona_diurna = valorDiurno;
+        db.cancha.precio_persona_nocturna = valorNocturno;
+      } else {
+        db.cancha.tarifa_hora = valorNocturno;
+        db.cancha.tarifa_diurna = valorDiurno;
+        db.cancha.tarifa_nocturna = valorNocturno;
+      }
     }
     db.franjas_oficiales = (db.franjas_oficiales || []).map((f) => ({
       ...f,
       precio:
-        f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tarifaDiurna : tarifaNocturna
+        f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? valorDiurno : valorNocturno
     }));
     CanchaDB.save(db);
 
     SecurityAuditLogger.log('TARIFA_ACTUALIZADA', 'INFO', {
       username: adminInfo?.username || 'tesoreria',
       rol: adminInfo?.rol || 'Tesorero',
-      diurna: tarifaDiurna,
-      nocturna: tarifaNocturna
+      tipo_cobro: tipoCobro,
+      diurna: valorDiurno,
+      nocturna: valorNocturno
     });
 
     return {
       ok: true,
       tarifas: {
-        tarifa_hora: tarifaNocturna,
-        tarifa_diurna: tarifaDiurna,
-        tarifa_nocturna: tarifaNocturna,
-        modo_diferenciado: tarifaDiurna !== tarifaNocturna
+        tipo_cobro: tipoCobro,
+        tarifa_hora: valorNocturno,
+        tarifa_diurna: valorDiurno,
+        tarifa_nocturna: valorNocturno,
+        modo_diferenciado: valorDiurno !== valorNocturno
       }
     };
   }
