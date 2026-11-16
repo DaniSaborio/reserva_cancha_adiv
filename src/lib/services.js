@@ -145,6 +145,7 @@ export class ReservaService {
 
               return {
                 ...f,
+                label: f.label || `${f.hora_inicio}–${f.hora_fin}`,
                 fecha: fechaSegura,
                 disponible: isDisp,
                 estado: normEstado,
@@ -172,7 +173,10 @@ export class ReservaService {
             const db = CanchaDB.load();
             for (const r of data.reservas) {
               const idx = db.reservas.findIndex(
-                (lr) => lr.fecha_reserva === r.fecha_reserva && lr.hora_inicio === r.hora_inicio
+                (lr) =>
+                  lr.fecha_reserva === r.fecha_reserva &&
+                  lr.hora_inicio === r.hora_inicio &&
+                  lr.estado !== 'Cancelada'
               );
               if (idx >= 0) {
                 db.reservas[idx].estado = r.estado;
@@ -1287,18 +1291,29 @@ export class AuthMiddleware {
     }
 
     const db = CanchaDB.load();
-    const encontrado = db.usuarios_admin.find(
+    const candidato = db.usuarios_admin.find(
       (u) =>
-        u.activo === 1 &&
-        (timingSafeEqualStr(u.username.toLowerCase(), user) ||
-          timingSafeEqualStr(u.email.toLowerCase(), user))
+        timingSafeEqualStr(u.username.toLowerCase(), user) ||
+        timingSafeEqualStr(u.email.toLowerCase(), user)
     );
 
-    // A04:2025 - Comparación en tiempo constante para evitar ataques de temporización
-    const passwordValida =
-      timingSafeEqualStr(pass, 'Venecia2026!') ||
-      timingSafeEqualStr(pass, 'admin123') ||
-      timingSafeEqualStr(pass, 'venecia2026');
+    if (candidato && Number(candidato.activo) === 0) {
+      SecurityAuditLogger.log('LOGIN_SUSPENDED_ACCOUNT', 'WARN', { user });
+      return {
+        ok: false,
+        status: 403,
+        error: 'Esta cuenta tiene el acceso suspendido por administración.'
+      };
+    }
+
+    const encontrado = candidato && Number(candidato.activo) === 1 ? candidato : null;
+
+    // A04:2025 - Comparación en tiempo constante (respeta contraseña personalizada o semilla)
+    const passwordValida = encontrado?.password_custom
+      ? timingSafeEqualStr(pass, encontrado.password_custom)
+      : timingSafeEqualStr(pass, 'Venecia2026!') ||
+        timingSafeEqualStr(pass, 'admin123') ||
+        timingSafeEqualStr(pass, 'venecia2026');
 
     if (!encontrado || !passwordValida) {
       const failInfo = LoginBruteForceGuard.recordFailure(user || 'global');
@@ -1334,6 +1349,10 @@ export class AuthMiddleware {
     return { ok: true, status: 200, session };
   }
 
+  static iniciarSesion(usernameInput, passwordInput) {
+    return this.validarCredenciales(usernameInput, passwordInput);
+  }
+
   static emitirJWT(usuario) {
     const iat = Math.floor(Date.now() / 1000);
     const exp = iat + 8 * 3600; // 8 horas (PT-API-03)
@@ -1341,13 +1360,31 @@ export class AuthMiddleware {
       `${usuario.id}:${usuario.username}:${usuario.rol}:${exp}`
     );
 
+    const permisos = Array.isArray(usuario.permisos)
+      ? usuario.permisos
+      : usuario.rol === 'Tesorero'
+      ? ['dashboard', 'reservas', 'reportes']
+      : ['dashboard', 'reservas', 'bloqueos', 'reportes', 'usuarios'];
+
+    const adminLimpio = {
+      id: usuario.id,
+      username: usuario.username,
+      nombre: usuario.nombre,
+      cargo: usuario.cargo || 'Directiva ADI',
+      email: usuario.email,
+      rol: usuario.rol,
+      permisos,
+      activo: usuario.activo ?? 1
+    };
+
     const payload = {
       sub: usuario.id,
       username: usuario.username,
       nombre: usuario.nombre,
-      cargo: usuario.cargo,
+      cargo: adminLimpio.cargo,
       email: usuario.email,
       rol: usuario.rol,
+      permisos,
       iat,
       exp
     };
@@ -1358,7 +1395,7 @@ export class AuthMiddleware {
           )}.${sig}`
         : `jwt_token_cancha_venecia.${sig}`;
 
-    return { token, admin: usuario, exp, sig };
+    return { token, admin: adminLimpio, exp, sig };
   }
 
   static verificarToken() {
@@ -1390,8 +1427,19 @@ export class AuthMiddleware {
               exp: data.exp || Math.floor(Date.now() / 1000) + 8 * 3600
             };
             CanchaDB.setAuthSession(session);
+            SecurityAuditLogger.log('LOGIN_SUCCESS', 'INFO', {
+              username: data.admin.username,
+              rol: data.admin.rol
+            });
             return { ok: true, session };
           }
+        } else if (resp.status === 403) {
+          const errData = await resp.json().catch(() => ({}));
+          return {
+            ok: false,
+            status: 403,
+            error: errData.error || 'Tu cuenta tiene el acceso suspendido por administración.'
+          };
         } else if (resp.status === 401) {
           return {
             ok: false,
@@ -1403,6 +1451,359 @@ export class AuthMiddleware {
         console.warn('Fallback local para login:', e);
       }
     }
-    return this.iniciarSesion(usernameInput, passwordInput);
+    return this.validarCredenciales(usernameInput, passwordInput);
+  }
+}
+
+/**
+ * «Service» UsuarioAdminService
+ * Control de Usuarios, Roles, Permisos de Módulos y Accesos (OWASP A01:2025 RBAC)
+ */
+export const MODULOS_SISTEMA = [
+  {
+    id: 'dashboard',
+    label: 'Resumen y KPIs',
+    desc: 'Métricas de ingresos Efectivo/SINPE y ocupación semanal'
+  },
+  {
+    id: 'reservas',
+    label: 'Reservas y Pagos',
+    desc: 'Conciliar pagos, reprogramar y cancelar reservas'
+  },
+  {
+    id: 'bloqueos',
+    label: 'Bloqueos de Cancha',
+    desc: 'Inhabilitar horarios por mantenimiento, clima o torneos'
+  },
+  {
+    id: 'reportes',
+    label: 'Reportes Contables',
+    desc: 'Auditar movimientos y exportar cierres a Excel (CSV)'
+  },
+  {
+    id: 'usuarios',
+    label: 'Usuarios y Accesos',
+    desc: 'Crear cuentas, asignar roles, permisos y contraseñas'
+  }
+];
+
+export class UsuarioAdminService {
+  static permisosPorDefecto(rol) {
+    return rol === 'Tesorero'
+      ? ['dashboard', 'reservas', 'reportes']
+      : ['dashboard', 'reservas', 'bloqueos', 'reportes', 'usuarios'];
+  }
+
+  static listarUsuarios() {
+    const db = CanchaDB.load();
+    return (db.usuarios_admin || []).map((u) => ({
+      ...u,
+      cargo: u.cargo || (u.rol === 'Tesorero' ? 'Fiscalía Deportiva' : 'Coordinación Cancha'),
+      permisos: Array.isArray(u.permisos) ? u.permisos : this.permisosPorDefecto(u.rol),
+      activo: Number(u.activo) === 0 ? 0 : 1
+    }));
+  }
+
+  static async listarUsuariosAsync(token = null) {
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/usuarios', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const remotos = await resp.json();
+          if (Array.isArray(remotos) && remotos.length > 0) {
+            const db = CanchaDB.load();
+            const localPassMap = new Map(
+              (db.usuarios_admin || []).map((u) => [u.username.toLowerCase(), u.password_custom])
+            );
+            db.usuarios_admin = remotos.map((r) => ({
+              ...r,
+              password_custom: localPassMap.get(r.username.toLowerCase()) || undefined
+            }));
+            CanchaDB.save(db);
+            return db.usuarios_admin;
+          }
+        }
+      } catch (e) {
+        console.warn('Usando lista local de usuarios_admin:', e);
+      }
+    }
+    return this.listarUsuarios();
+  }
+
+  static crearUsuario(dto) {
+    const username = sanitizeText(dto?.username, 40)
+      .replace(/[^a-zA-Z0-9._-]/g, '')
+      .toLowerCase();
+    const nombre = sanitizeText(dto?.nombre, 80);
+    const cargo = sanitizeText(dto?.cargo || 'Directiva ADI', 80);
+    const email = sanitizeText(dto?.email, 80).toLowerCase();
+    const rol = dto?.rol === 'Tesorero' ? 'Tesorero' : 'Administrador';
+    const password = String(dto?.password || '').trim();
+    const permisos =
+      Array.isArray(dto?.permisos) && dto.permisos.length > 0
+        ? dto.permisos
+        : this.permisosPorDefecto(rol);
+    const activo = dto?.activo === 0 || dto?.activo === false ? 0 : 1;
+
+    if (!username || username.length < 3) {
+      return { ok: false, error: 'El nombre de usuario debe tener al menos 3 caracteres.' };
+    }
+    if (!nombre || nombre.length < 3) {
+      return { ok: false, error: 'Ingresá el nombre completo del responsable.' };
+    }
+    if (!email || !email.includes('@')) {
+      return { ok: false, error: 'Ingresá un correo electrónico válido.' };
+    }
+    if (!password || password.length < 6) {
+      return { ok: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
+    }
+
+    const db = CanchaDB.load();
+    const duplicado = db.usuarios_admin.find(
+      (u) => u.username.toLowerCase() === username || u.email.toLowerCase() === email
+    );
+    if (duplicado) {
+      return { ok: false, error: 'Ya existe un usuario con ese username o correo electrónico.' };
+    }
+
+    const maxId = db.usuarios_admin.reduce((acc, u) => Math.max(acc, Number(u.id) || 0), 0);
+    const nuevo = {
+      id: maxId + 1,
+      username,
+      nombre,
+      cargo,
+      email,
+      rol,
+      permisos,
+      activo,
+      password_custom: password,
+      created_at: new Date().toISOString()
+    };
+
+    db.usuarios_admin.push(nuevo);
+    CanchaDB.save(db);
+
+    SecurityAuditLogger.log('USUARIO_CREADO', 'INFO', {
+      username,
+      rol,
+      permisos: permisos.join(',')
+    });
+
+    return { ok: true, usuario: nuevo };
+  }
+
+  static async crearUsuarioAsync(dto, token = null) {
+    const localRes = this.crearUsuario(dto);
+    if (!localRes.ok) return localRes;
+
+    if (typeof window !== 'undefined' && token) {
+      try {
+        const resp = await fetch('/api/admin/usuarios', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(dto)
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.usuario?.id) {
+            const db = CanchaDB.load();
+            const idx = db.usuarios_admin.findIndex(
+              (u) => u.username.toLowerCase() === localRes.usuario.username.toLowerCase()
+            );
+            if (idx >= 0) {
+              db.usuarios_admin[idx].id = Number(data.usuario.id);
+              CanchaDB.save(db);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Guardado local de nuevo usuario (sin conexión D1):', e);
+      }
+    }
+
+    return localRes;
+  }
+
+  static actualizarUsuario(id, cambios = {}, currentAdminId = null) {
+    const db = CanchaDB.load();
+    const idx = db.usuarios_admin.findIndex((u) => Number(u.id) === Number(id));
+    if (idx === -1) return { ok: false, error: 'Usuario no encontrado.' };
+
+    const actual = db.usuarios_admin[idx];
+
+    if (
+      cambios.activo !== undefined &&
+      Number(cambios.activo) === 0 &&
+      currentAdminId &&
+      Number(actual.id) === Number(currentAdminId)
+    ) {
+      return {
+        ok: false,
+        error: 'Por seguridad no podés suspender el acceso de tu propia cuenta en sesión.'
+      };
+    }
+
+    const nuevoRol =
+      cambios.rol !== undefined
+        ? cambios.rol === 'Tesorero'
+          ? 'Tesorero'
+          : 'Administrador'
+        : actual.rol;
+
+    const nuevosPermisos =
+      cambios.permisos !== undefined
+        ? Array.isArray(cambios.permisos) && cambios.permisos.length > 0
+          ? cambios.permisos
+          : this.permisosPorDefecto(nuevoRol)
+        : cambios.rol !== undefined && cambios.rol !== actual.rol
+        ? this.permisosPorDefecto(nuevoRol)
+        : actual.permisos || this.permisosPorDefecto(nuevoRol);
+
+    const actualizado = {
+      ...actual,
+      nombre: cambios.nombre !== undefined ? sanitizeText(cambios.nombre, 80) : actual.nombre,
+      cargo: cambios.cargo !== undefined ? sanitizeText(cambios.cargo, 80) : actual.cargo,
+      email:
+        cambios.email !== undefined
+          ? sanitizeText(cambios.email, 80).toLowerCase()
+          : actual.email,
+      rol: nuevoRol,
+      permisos: nuevosPermisos,
+      activo:
+        cambios.activo !== undefined ? (Number(cambios.activo) === 0 ? 0 : 1) : actual.activo
+    };
+
+    if (cambios.password && String(cambios.password).trim().length >= 6) {
+      actualizado.password_custom = String(cambios.password).trim();
+    }
+
+    db.usuarios_admin[idx] = actualizado;
+    CanchaDB.save(db);
+
+    // Si el usuario editado es el que tiene sesión activa, actualizar su sesión en vivo
+    const sesionActual = CanchaDB.getAuthSession();
+    if (sesionActual?.admin && Number(sesionActual.admin.id) === Number(id)) {
+      CanchaDB.setAuthSession({
+        ...sesionActual,
+        admin: {
+          ...sesionActual.admin,
+          nombre: actualizado.nombre,
+          cargo: actualizado.cargo,
+          email: actualizado.email,
+          rol: actualizado.rol,
+          permisos: actualizado.permisos,
+          activo: actualizado.activo
+        }
+      });
+    }
+
+    SecurityAuditLogger.log('USUARIO_ACTUALIZADO', 'INFO', {
+      username: actualizado.username,
+      rol: actualizado.rol,
+      activo: actualizado.activo
+    });
+
+    return { ok: true, usuario: actualizado };
+  }
+
+  static async actualizarUsuarioAsync(id, cambios = {}, token = null, currentAdminId = null) {
+    const localRes = this.actualizarUsuario(id, cambios, currentAdminId);
+    if (!localRes.ok) return localRes;
+
+    if (typeof window !== 'undefined' && token) {
+      try {
+        await fetch('/api/admin/usuarios', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ id, ...cambios, permisos: localRes.usuario.permisos })
+        });
+      } catch (e) {
+        console.warn('Actualización local de usuario (sin conexión D1):', e);
+      }
+    }
+
+    return localRes;
+  }
+
+  static eliminarUsuario(id, currentAdminId = null) {
+    if (currentAdminId && Number(id) === Number(currentAdminId)) {
+      return {
+        ok: false,
+        error: 'No podés eliminar la cuenta con la que estás conectado actualmente.'
+      };
+    }
+
+    const db = CanchaDB.load();
+    const target = db.usuarios_admin.find((u) => Number(u.id) === Number(id));
+    if (!target) return { ok: false, error: 'Usuario no encontrado.' };
+
+    const adminsActivos = db.usuarios_admin.filter(
+      (u) => Number(u.id) !== Number(id) && u.rol === 'Administrador' && Number(u.activo) === 1
+    );
+    if (adminsActivos.length === 0) {
+      return {
+        ok: false,
+        error: 'Debe permanecer al menos un Administrador activo en el sistema.'
+      };
+    }
+
+    if (target.username?.toLowerCase() === 'sabo') {
+      db.saboRemoved = true;
+    }
+
+    db.usuarios_admin = db.usuarios_admin.filter((u) => Number(u.id) !== Number(id));
+    CanchaDB.save(db);
+
+    SecurityAuditLogger.log('USUARIO_ELIMINADO', 'WARN', {
+      username: target.username,
+      rol: target.rol
+    });
+
+    return { ok: true };
+  }
+
+  static async eliminarUsuarioAsync(id, token = null, currentAdminId = null) {
+    const localRes = this.eliminarUsuario(id, currentAdminId);
+    if (!localRes.ok) return localRes;
+
+    if (typeof window !== 'undefined' && token) {
+      try {
+        await fetch(`/api/admin/usuarios?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (e) {
+        console.warn('Eliminación local de usuario (sin conexión D1):', e);
+      }
+    }
+
+    return localRes;
+  }
+
+  static desbloquearIntentosLogin(username = null) {
+    if (username) {
+      LoginBruteForceGuard.reset(username.toLowerCase());
+    }
+    LoginBruteForceGuard.reset('global');
+    LoginBruteForceGuard.reset('admin');
+    LoginBruteForceGuard.reset('tesoreria');
+    LoginBruteForceGuard.reset('sabo');
+    SecurityAuditLogger.log('LOCKOUT_RESET', 'INFO', {
+      by: 'Administrador',
+      target: username || 'todos'
+    });
+    return true;
+  }
+
+  static obtenerBitacoraSeguridad(limit = 12) {
+    return SecurityAuditLogger.getRecentLogs(limit);
   }
 }

@@ -238,30 +238,33 @@ async function handleApiRequest(req, res, urlObj) {
       const user = String(body.username || '').trim().toLowerCase();
       const pass = String(body.password || '');
 
-      const credencialesValidas =
-        (user === 'admin' && pass === 'Venecia2026!') ||
-        (user === 'tesoreria' && pass === 'Tesoreria2026!');
+      const dbUser = (localD1.usuarios_admin || []).find(
+        (u) => u.username.toLowerCase() === user || u.email.toLowerCase() === user
+      );
 
-      if (!credencialesValidas) {
+      if (dbUser && Number(dbUser.activo) === 0) {
+        return sendJson(res, 403, {
+          error: 'Tu cuenta tiene el acceso suspendido por administración.'
+        });
+      }
+
+      const passValida = dbUser?.password_custom
+        ? pass === dbUser.password_custom
+        : pass === 'Venecia2026!' || pass === 'Tesoreria2026!' || pass === 'admin123';
+
+      if (!dbUser || !passValida) {
         return sendJson(res, 401, { error: 'Credenciales incorrectas' });
       }
 
-      const adminInfo =
-        user === 'tesoreria'
-          ? {
-              id: 2,
-              username: 'tesoreria',
-              nombre: 'Marta Soto (Tesorera)',
-              rol: 'Tesorero',
-              email: 'tesoreria@canchavenecia.cr'
-            }
-          : {
-              id: 1,
-              username: 'admin',
-              nombre: 'Carlos Pérez (Encargado)',
-              rol: 'Administrador',
-              email: 'admin@canchavenecia.cr'
-            };
+      const adminInfo = {
+        id: dbUser.id,
+        username: dbUser.username,
+        nombre: dbUser.nombre,
+        cargo: dbUser.cargo || 'Directiva ADI',
+        rol: dbUser.rol,
+        permisos: dbUser.permisos || ['dashboard', 'reservas', 'bloqueos', 'reportes', 'usuarios'],
+        email: dbUser.email
+      };
 
       const headerB64 = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
       const payloadB64 = Buffer.from(
@@ -270,6 +273,7 @@ async function handleApiRequest(req, res, urlObj) {
           username: adminInfo.username,
           nombre: adminInfo.nombre,
           rol: adminInfo.rol,
+          permisos: adminInfo.permisos,
           iat: Math.floor(Date.now() / 1000),
           exp: Math.floor(Date.now() / 1000) + 8 * 3600
         })
@@ -477,6 +481,62 @@ async function handleApiRequest(req, res, urlObj) {
       return sendJson(res, 400, { error: 'Acción no soportada' });
     } catch {
       return sendJson(res, 400, { error: 'Formato inválido' });
+    }
+  }
+
+  // 10. GET / POST / PATCH / DELETE /api/admin/usuarios
+  if (pathname === '/api/admin/usuarios') {
+    const claims = verifyBearerJwt(req.headers['authorization'] || '');
+    if (!claims) return sendJson(res, 401, { error: 'No autorizado' });
+
+    if (method === 'GET') {
+      return sendJson(res, 200, localD1.usuarios_admin || []);
+    }
+
+    if (claims.rol !== 'Administrador') {
+      return sendJson(res, 403, { error: 'Se requiere rol de Administrador' });
+    }
+
+    if (method === 'POST') {
+      const body = await readJsonBody(req);
+      const maxId = (localD1.usuarios_admin || []).reduce((m, u) => Math.max(m, Number(u.id) || 0), 0);
+      const nuevo = {
+        id: maxId + 1,
+        username: String(body.username || '').toLowerCase(),
+        nombre: String(body.nombre || ''),
+        cargo: String(body.cargo || 'Directiva ADI'),
+        email: String(body.email || '').toLowerCase(),
+        rol: body.rol === 'Tesorero' ? 'Tesorero' : 'Administrador',
+        permisos: Array.isArray(body.permisos) ? body.permisos : ['dashboard', 'reservas', 'reportes'],
+        activo: body.activo === 0 ? 0 : 1,
+        password_custom: body.password || undefined
+      };
+      localD1.usuarios_admin.push(nuevo);
+      return sendJson(res, 201, { ok: true, usuario: nuevo });
+    }
+
+    if (method === 'PATCH') {
+      const body = await readJsonBody(req);
+      const idx = (localD1.usuarios_admin || []).findIndex((u) => Number(u.id) === Number(body.id));
+      if (idx === -1) return sendJson(res, 404, { error: 'Usuario no encontrado' });
+      const actual = localD1.usuarios_admin[idx];
+      localD1.usuarios_admin[idx] = {
+        ...actual,
+        nombre: body.nombre !== undefined ? body.nombre : actual.nombre,
+        cargo: body.cargo !== undefined ? body.cargo : actual.cargo,
+        email: body.email !== undefined ? body.email : actual.email,
+        rol: body.rol !== undefined ? body.rol : actual.rol,
+        permisos: body.permisos !== undefined ? body.permisos : actual.permisos,
+        activo: body.activo !== undefined ? Number(body.activo) : actual.activo,
+        password_custom: body.password ? body.password : actual.password_custom
+      };
+      return sendJson(res, 200, { ok: true, usuario: localD1.usuarios_admin[idx] });
+    }
+
+    if (method === 'DELETE') {
+      const id = Number(urlObj.searchParams.get('id'));
+      localD1.usuarios_admin = (localD1.usuarios_admin || []).filter((u) => Number(u.id) !== id);
+      return sendJson(res, 200, { ok: true, id });
     }
   }
 

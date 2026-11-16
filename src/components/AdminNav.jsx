@@ -8,6 +8,7 @@ import {
   FaCalendarCheck,
   FaBan,
   FaFileCsv,
+  FaUsersGear,
   FaRightFromBracket
 } from 'react-icons/fa6';
 
@@ -40,6 +41,12 @@ export default function AdminNav({ subtituloFecha = 'Viernes 06/11/2026' }) {
       href: '/admin/reportes/',
       icon: FaFileCsv,
       active: pathname.startsWith('/admin/reportes')
+    },
+    {
+      label: 'Usuarios y Accesos',
+      href: '/admin/usuarios/',
+      icon: FaUsersGear,
+      active: pathname.startsWith('/admin/usuarios')
     }
   ];
 

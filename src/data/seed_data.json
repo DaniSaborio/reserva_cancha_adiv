@@ -29,6 +29,7 @@
       "cargo": "Coordinación Cancha",
       "email": "admin@canchavenecia.cr",
       "rol": "Administrador",
+      "permisos": ["dashboard", "reservas", "bloqueos", "reportes", "usuarios"],
       "activo": 1
     },
     {
@@ -38,6 +39,17 @@
       "cargo": "Fiscalía Deportiva",
       "email": "tesoreria@canchavenecia.cr",
       "rol": "Tesorero",
+      "permisos": ["dashboard", "reservas", "reportes"],
+      "activo": 1
+    },
+    {
+      "id": 3,
+      "username": "sabo",
+      "nombre": "Daniel Saborío (Superadmin)",
+      "cargo": "Dirección General / TI",
+      "email": "sabo@canchavenecia.cr",
+      "rol": "Administrador",
+      "permisos": ["dashboard", "reservas", "bloqueos", "reportes", "usuarios"],
       "activo": 1
     }
   ],

@@ -82,7 +82,7 @@ export default function PromoPortalMigrante() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm">
               <FaCompass className="w-4 h-4" />
               <span
                 className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white"
@@ -128,7 +128,7 @@ export default function PromoPortalMigrante() {
               href={portalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-sky-600 hover:bg-sky-700 text-white shadow-2xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition-colors"
             >
               <span>Visitar portal</span>
               <FaArrowUpRightFromSquare className="w-2.5 h-2.5" />
@@ -148,7 +148,7 @@ export default function PromoPortalMigrante() {
 
         {/* Pop-up flotante con el detalle y QR (no desplaza el contenido inferior) */}
         {expandido && (
-          <div className="sm:absolute sm:left-0 sm:right-0 sm:top-full sm:mt-2 mt-3 pt-3 sm:pt-3.5 sm:px-4 sm:pb-3.5 bg-white/98 backdrop-blur-md sm:rounded-2xl border-t sm:border border-sky-200/90 sm:shadow-xl grid sm:grid-cols-4 gap-2.5 text-xs text-slate-600 items-center z-40">
+          <div className="sm:absolute sm:left-0 sm:right-0 sm:top-full sm:mt-2 mt-3 pt-3 sm:pt-3.5 sm:px-4 sm:pb-3.5 bg-white sm:rounded-2xl border-t sm:border border-sky-200/90 sm:shadow-xl grid sm:grid-cols-4 gap-2.5 text-xs text-slate-600 items-center z-40">
             <div className="flex items-start gap-2 bg-sky-50/50 p-2.5 rounded-xl border border-slate-100 h-full">
               <FaBookOpen className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
               <span>

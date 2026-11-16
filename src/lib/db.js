@@ -52,6 +52,27 @@ export const CanchaDB = {
         localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(init));
         return init;
       }
+      if (!Array.isArray(parsed.usuarios_admin) || parsed.usuarios_admin.length === 0) {
+        parsed.usuarios_admin = cloneDeep(seedData.usuarios_admin);
+      } else {
+        // Asegurar permisos por defecto y cuenta sabo si viene de versión previa
+        parsed.usuarios_admin = parsed.usuarios_admin.map((u) => ({
+          ...u,
+          cargo: u.cargo || (u.rol === 'Tesorero' ? 'Fiscalía Deportiva' : 'Directiva ADI'),
+          permisos: Array.isArray(u.permisos)
+            ? u.permisos
+            : u.rol === 'Tesorero'
+            ? ['dashboard', 'reservas', 'reportes']
+            : ['dashboard', 'reservas', 'bloqueos', 'reportes', 'usuarios']
+        }));
+        if (
+          !parsed.usuarios_admin.some((u) => u.username?.toLowerCase() === 'sabo') &&
+          !parsed.saboRemoved
+        ) {
+          const saboSeed = seedData.usuarios_admin.find((u) => u.username === 'sabo');
+          if (saboSeed) parsed.usuarios_admin.push(cloneDeep(saboSeed));
+        }
+      }
       return parsed;
     } catch {
       if (!memoryFallbackDB) {

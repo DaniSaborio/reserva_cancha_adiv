@@ -10,13 +10,13 @@ const SEC_HEADERS = {
 };
 
 const FRANJAS_OFICIALES = [
-  { hora_inicio: '16:00', hora_fin: '17:00', precio: 16000 },
-  { hora_inicio: '17:00', hora_fin: '18:00', precio: 16000 },
-  { hora_inicio: '18:00', hora_fin: '19:00', precio: 16000 },
-  { hora_inicio: '19:00', hora_fin: '20:00', precio: 16000 },
-  { hora_inicio: '20:00', hora_fin: '21:00', precio: 16000 },
-  { hora_inicio: '21:00', hora_fin: '22:00', precio: 16000 },
-  { hora_inicio: '22:00', hora_fin: '23:00', precio: 16000 }
+  { hora_inicio: '16:00', hora_fin: '17:00', label: '16:00–17:00', precio: 16000 },
+  { hora_inicio: '17:00', hora_fin: '18:00', label: '17:00–18:00', precio: 16000 },
+  { hora_inicio: '18:00', hora_fin: '19:00', label: '18:00–19:00', precio: 16000 },
+  { hora_inicio: '19:00', hora_fin: '20:00', label: '19:00–20:00', precio: 16000 },
+  { hora_inicio: '20:00', hora_fin: '21:00', label: '20:00–21:00', precio: 16000 },
+  { hora_inicio: '21:00', hora_fin: '22:00', label: '21:00–22:00', precio: 16000 },
+  { hora_inicio: '22:00', hora_fin: '23:00', label: '22:00–23:00', precio: 16000 }
 ];
 
 export async function onRequestGet(context) {

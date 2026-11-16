@@ -36,6 +36,7 @@ export default function HomePage() {
   const router = useRouter();
   // Fecha inicial: 2026-11-06 (Viernes 6 de noviembre de 2026) como en UI-01, UI-02, UI-03 y Datos Semilla
   const [vista, setVista] = useState('dia'); // 'dia' | 'semana' | 'mes'
+  const [hoyISO, setHoyISO] = useState('');
   const [fechaSeleccionada, setFechaSeleccionada] = useState('2026-11-06');
   const [franjasDia, setFranjasDia] = useState([]);
   const [celdaSemanalActiva, setCeldaSemanalActiva] = useState({
@@ -119,12 +120,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const hoy = getFechaHoyISO();
+      setHoyISO(hoy);
       const params = new URLSearchParams(window.location.search);
       const f = params.get('fecha');
       if (f) {
         setFechaSeleccionada(f);
       } else {
-        const hoy = getFechaHoyISO();
         setFechaSeleccionada(hoy);
       }
     }
@@ -163,10 +165,16 @@ export default function HomePage() {
   const primerDiaSemanaMes = new Date(anioActual, mesActualIdx, 1).getDay();
   const offsetLunes = primerDiaSemanaMes === 0 ? 6 : primerDiaSemanaMes - 1;
 
-  // Rango de la semana activa (ej. "2–8 de noviembre de 2026")
+  // Rango de la semana activa (ej. "16–22 de noviembre de 2026" o "30 de noviembre – 6 de diciembre de 2026")
   const lunesSemana = matrizSemana[0]?.fecha ? parseFechaISO(matrizSemana[0].fecha) : dateObj;
   const domingoSemana = matrizSemana[6]?.fecha ? parseFechaISO(matrizSemana[6].fecha) : dateObj;
-  const textoRangoSemana = `${lunesSemana.getDate()}–${domingoSemana.getDate()} de ${MESES_TITULO[domingoSemana.getMonth()].toLowerCase()} de ${domingoSemana.getFullYear()}`;
+  const mismoMesSemana = lunesSemana.getMonth() === domingoSemana.getMonth();
+  const textoRangoSemana = mismoMesSemana
+    ? `${lunesSemana.getDate()}–${domingoSemana.getDate()} de ${MESES_TITULO[domingoSemana.getMonth()].toLowerCase()} de ${domingoSemana.getFullYear()}`
+    : `${lunesSemana.getDate()} de ${MESES_TITULO[lunesSemana.getMonth()].toLowerCase()} – ${domingoSemana.getDate()} de ${MESES_TITULO[domingoSemana.getMonth()].toLowerCase()} de ${domingoSemana.getFullYear()}`;
+  const tituloSemanaCorta = mismoMesSemana
+    ? `${MESES_TITULO[domingoSemana.getMonth()]} ${domingoSemana.getFullYear()} · ${lunesSemana.getDate()}–${domingoSemana.getDate()}`
+    : `${lunesSemana.getDate()} ${MESES_TITULO[lunesSemana.getMonth()].slice(0, 3)} – ${domingoSemana.getDate()} ${MESES_TITULO[domingoSemana.getMonth()].slice(0, 3)} ${domingoSemana.getFullYear()}`;
 
   const horasLibresHoy = franjasDia.filter((f) => f.disponible).length;
 
@@ -239,7 +247,7 @@ export default function HomePage() {
                 onClick={() => setVista(tab.id)}
                 className={`flex-1 sm:flex-initial min-w-[6rem] sm:min-w-[7.25rem] px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold text-center transition-all ${
                   vista === tab.id
-                    ? 'bg-emerald-100 text-cancha-900 shadow-2xs border border-emerald-300/80'
+                    ? 'bg-emerald-100 text-cancha-900 shadow-sm border border-emerald-300/80'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -247,6 +255,32 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Guía de colores de estado visible arriba en todas las vistas */}
+        <div
+          aria-label="Guía de colores sobre el estado de las reservas"
+          className="rounded-2xl bg-slate-50/90 border border-slate-200/80 px-3 py-2.5 flex flex-wrap items-center justify-center gap-2"
+        >
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mr-0.5">
+            Guía de estados:
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
+            <FaRegCircle className="w-3 h-3 shrink-0" />
+            <span>Libre</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+            <FaCheck className="w-3 h-3 shrink-0" />
+            <span>Ocupado</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            <FaClock className="w-3 h-3 shrink-0" />
+            <span>En proceso</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+            <FaWrench className="w-3 h-3 shrink-0" />
+            <span>Mantenimiento</span>
+          </span>
         </div>
 
         {/* =================================================================== */}
@@ -282,13 +316,13 @@ export default function HomePage() {
                 </span>
               </div>
 
-              {/* Input selector de fecha estilo UI-01 ("06/11/2026 · Hoy") */}
+              {/* Input selector de fecha estilo UI-01 ("16/11/2026 · Hoy") */}
               <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl border border-slate-200 bg-slate-50/70">
                 <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-800">
-                  <FaCalendarDay className="w-4 h-4 text-cancha-700" />
+                  <FaCalendarDay className="w-4 h-4 text-cancha-700 shrink-0" />
                   <span>{formatDDMMYYYY(fechaSeleccionada)}</span>
-                  {fechaSeleccionada === '2026-11-06' && (
-                    <span className="text-xs font-semibold text-cancha-700">· Fecha activa</span>
+                  {hoyISO && fechaSeleccionada === hoyISO && (
+                    <span className="text-xs font-semibold text-cancha-700">· Hoy</span>
                   )}
                 </div>
                 <input
@@ -314,22 +348,24 @@ export default function HomePage() {
 
               <div className="grid gap-2.5">
                 {franjasDia.map((franja) => {
+                  const labelFranja = franja.label || `${franja.hora_inicio}–${franja.hora_fin}`;
+
                   if (franja.estado === 'Libre') {
                     return (
                       <button
                         key={franja.hora_inicio}
                         onClick={() => irAReservar(fechaSeleccionada, franja.hora_inicio)}
-                        className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white hover:bg-emerald-50/50 border-2 border-cancha-700/60 hover:border-cancha-700 transition-all group text-left shadow-2xs"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-white hover:bg-emerald-50/50 border-2 border-cancha-700/60 hover:border-cancha-700 transition-all group text-left shadow-sm"
                       >
-                        <div>
-                          <span className="text-sm sm:text-base font-extrabold text-slate-900">
-                            {franja.label}
+                        <div className="min-w-0">
+                          <span className="text-sm sm:text-base font-extrabold text-slate-900 tabular-nums">
+                            {labelFranja}
                           </span>
-                          <span className="hidden sm:inline-block ml-3 text-xs font-medium text-slate-500">
+                          <span className="block sm:inline-block sm:ml-3 text-[11px] sm:text-xs font-medium text-slate-500">
                             Cancha sintética · {formatColones(franja.precio)}
                           </span>
                         </div>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200 group-hover:bg-cancha-800 group-hover:text-white transition-colors">
+                        <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200 group-hover:bg-cancha-800 group-hover:text-white transition-colors">
                           <FaRegCircle className="w-3 h-3" />
                           <span>Reservar</span>
                         </span>
@@ -342,12 +378,17 @@ export default function HomePage() {
                       <div
                         key={franja.hora_inicio}
                         aria-disabled="true"
-                        className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 text-rose-900 cursor-not-allowed select-none"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 text-rose-900 cursor-not-allowed select-none"
                       >
-                        <span className="text-sm sm:text-base font-extrabold text-rose-950/80">
-                          {franja.label}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100/90 text-rose-800 border border-rose-200">
+                        <div className="min-w-0">
+                          <span className="text-sm sm:text-base font-extrabold text-rose-950/90 tabular-nums">
+                            {labelFranja}
+                          </span>
+                          <span className="block sm:inline-block sm:ml-3 text-[11px] sm:text-xs font-medium text-rose-700/80">
+                            Turno reservado y confirmado
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100/90 text-rose-800 border border-rose-200">
                           <FaCheck className="w-3 h-3" />
                           <span>Ocupado</span>
                         </span>
@@ -360,12 +401,17 @@ export default function HomePage() {
                       <div
                         key={franja.hora_inicio}
                         aria-disabled="true"
-                        className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 cursor-not-allowed select-none"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 cursor-not-allowed select-none"
                       >
-                        <span className="text-sm sm:text-base font-extrabold text-amber-950/80">
-                          {franja.label}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100/90 text-amber-800 border border-amber-200">
+                        <div className="min-w-0">
+                          <span className="text-sm sm:text-base font-extrabold text-amber-950/90 tabular-nums">
+                            {labelFranja}
+                          </span>
+                          <span className="block sm:inline-block sm:ml-3 text-[11px] sm:text-xs font-medium text-amber-800/80">
+                            Reserva pendiente de pago
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100/90 text-amber-800 border border-amber-200">
                           <FaClock className="w-3 h-3" />
                           <span>En proceso</span>
                         </span>
@@ -377,19 +423,17 @@ export default function HomePage() {
                     <div
                       key={franja.hora_inicio}
                       aria-disabled="true"
-                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-slate-100 border border-slate-300 text-slate-600 cursor-not-allowed select-none"
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-slate-100 border border-slate-300 text-slate-600 cursor-not-allowed select-none"
                     >
-                      <div>
-                        <span className="text-sm sm:text-base font-extrabold text-slate-700">
-                          {franja.label}
+                      <div className="min-w-0">
+                        <span className="text-sm sm:text-base font-extrabold text-slate-700 tabular-nums">
+                          {labelFranja}
                         </span>
-                        {franja.motivo_bloqueo && (
-                          <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                            {franja.motivo_bloqueo}
-                          </p>
-                        )}
+                        <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-0.5 truncate">
+                          {franja.motivo_bloqueo || 'Horario bloqueado por mantenimiento'}
+                        </p>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
+                      <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
                         <FaWrench className="w-3 h-3" />
                         <span>Mantenimiento</span>
                       </span>
@@ -416,7 +460,7 @@ export default function HomePage() {
                 <span>Semana ant.</span>
               </button>
               <span className="text-xs sm:text-sm font-extrabold text-slate-900 text-center">
-                {MESES_TITULO[mesActualIdx]} {anioActual} · {lunesSemana.getDate()}–{domingoSemana.getDate()}
+                {tituloSemanaCorta}
               </span>
               <button
                 onClick={() => cambiarDia(7)}
@@ -428,7 +472,7 @@ export default function HomePage() {
             </div>
 
             {/* Matriz de 7 días x 7 horas (UI-02) */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto p-1 -m-1">
               <table className="w-full border-separate border-spacing-1.5 text-center">
                 <thead>
                   <tr>
@@ -440,7 +484,7 @@ export default function HomePage() {
                       return (
                         <th
                           key={col.fecha}
-                          className={`text-[11px] font-extrabold px-1 py-1.5 rounded-lg ${
+                          className={`text-[11px] font-extrabold px-1.5 py-1.5 rounded-lg whitespace-nowrap ${
                             esFechaActiva
                               ? 'bg-emerald-100 text-cancha-900'
                               : 'text-slate-700'
@@ -618,7 +662,7 @@ export default function HomePage() {
                       onClick={() => setFechaSeleccionada(item.fecha)}
                       className={`h-10 rounded-xl text-xs font-bold flex flex-col items-center justify-center transition-all border ${
                         seleccionado
-                          ? 'bg-emerald-100 text-cancha-950 border-cancha-700 font-extrabold shadow-2xs'
+                          ? 'bg-emerald-100 text-cancha-950 border-cancha-700 font-extrabold shadow-sm'
                           : item.libres > 0
                           ? 'bg-white hover:bg-emerald-50/60 text-slate-800 border-slate-100'
                           : 'bg-rose-50 text-rose-400 border-rose-100'
@@ -630,7 +674,7 @@ export default function HomePage() {
                           <span className="w-1.5 h-1.5 rounded-full bg-cancha-800 inline-block" />
                         )}
                       </span>
-                      {tieneReservas && !seleccionado && (
+                      {tieneReservas && item.libres > 0 && !seleccionado && (
                         <span className="w-1 h-1 rounded-full bg-emerald-600 mt-0.5" />
                       )}
                     </button>
@@ -659,67 +703,53 @@ export default function HomePage() {
               </div>
 
               <div className="grid gap-2">
-                {franjasDia.map((franja) => (
-                  <div key={franja.hora_inicio}>
-                    {franja.disponible ? (
-                      <button
-                        onClick={() => irAReservar(fechaSeleccionada, franja.hora_inicio)}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white hover:bg-emerald-50 border border-cancha-700/50 text-left transition-all"
-                      >
-                        <span className="text-sm font-extrabold text-slate-900">{franja.label}</span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
-                          <FaRegCircle className="w-2.5 h-2.5" />
-                          <span>Reservar</span>
-                        </span>
-                      </button>
-                    ) : (
-                      <div
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold ${
-                          franja.estado === 'Ocupado'
-                            ? 'bg-rose-50 border-rose-200 text-rose-800'
-                            : franja.estado === 'En proceso'
-                            ? 'bg-amber-50 border-amber-200 text-amber-800'
-                            : 'bg-slate-100 border-slate-300 text-slate-600'
-                        }`}
-                      >
-                        <span className="text-sm font-extrabold">{franja.label}</span>
-                        <span>
-                          {franja.estado === 'Ocupado'
-                            ? '✓ Ocupado'
-                            : franja.estado === 'En proceso'
-                            ? 'En proceso'
-                            : 'Mantenimiento'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {franjasDia.map((franja) => {
+                  const labelFranja = franja.label || `${franja.hora_inicio}–${franja.hora_fin}`;
+                  return (
+                    <div key={franja.hora_inicio}>
+                      {franja.disponible ? (
+                        <button
+                          onClick={() => irAReservar(fechaSeleccionada, franja.hora_inicio)}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white hover:bg-emerald-50 border border-cancha-700/50 text-left transition-all"
+                        >
+                          <span className="text-sm font-extrabold text-slate-900 tabular-nums">
+                            {labelFranja}
+                          </span>
+                          <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
+                            <FaRegCircle className="w-2.5 h-2.5" />
+                            <span>Reservar</span>
+                          </span>
+                        </button>
+                      ) : (
+                        <div
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-xs font-bold ${
+                            franja.estado === 'Ocupado'
+                              ? 'bg-rose-50 border-rose-200 text-rose-800'
+                              : franja.estado === 'En proceso'
+                              ? 'bg-amber-50 border-amber-200 text-amber-800'
+                              : 'bg-slate-100 border-slate-300 text-slate-600'
+                          }`}
+                        >
+                          <span className="text-sm font-extrabold tabular-nums">{labelFranja}</span>
+                          <span className="shrink-0 whitespace-nowrap">
+                            {franja.estado === 'Ocupado'
+                              ? '✓ Ocupado'
+                              : franja.estado === 'En proceso'
+                              ? 'En proceso'
+                              : 'Mantenimiento'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* Leyenda de estados en tiempo real centrada (presente en UI-01, UI-02 y UI-03) */}
-        <div className="pt-2 border-t border-slate-100 space-y-3">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
-              <FaRegCircle className="w-3 h-3" />
-              <span>Libre</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
-              <FaCheck className="w-3 h-3" />
-              <span>Ocupado</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-              <FaClock className="w-3 h-3" />
-              <span>En proceso</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              <FaWrench className="w-3 h-3" />
-              <span>Mantenimiento</span>
-            </span>
-          </div>
-
+        {/* Nota de privacidad y pie de tarjeta */}
+        <div className="pt-3 border-t border-slate-100 space-y-3">
           <p className="text-xs text-slate-500 leading-relaxed flex items-start justify-center gap-2 text-center max-w-2xl mx-auto">
             <FaShieldHalved className="w-4 h-4 text-cancha-700 shrink-0 mt-0.5" />
             <span>
