@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { CanchaDB } from './db';
+import { formatRangoHora12, esFranjaPasada } from './utils';
 import {
   secureRandomInt,
   timingSafeEqualStr,
@@ -57,6 +58,7 @@ export class ReservaService {
       if (bloqueo) {
         return {
           ...franja,
+          label: formatRangoHora12(franja.hora_inicio, franja.hora_fin),
           tipo_cobro: tipoCobro,
           max_jugadores: maxJugadores,
           precio: precioActual,
@@ -73,6 +75,7 @@ export class ReservaService {
         const esConfirmada = reserva.estado === 'Confirmada';
         return {
           ...franja,
+          label: formatRangoHora12(franja.hora_inicio, franja.hora_fin),
           tipo_cobro: tipoCobro,
           max_jugadores: maxJugadores,
           precio: precioActual,
@@ -85,6 +88,7 @@ export class ReservaService {
 
       return {
         ...franja,
+        label: formatRangoHora12(franja.hora_inicio, franja.hora_fin),
         tipo_cobro: tipoCobro,
         max_jugadores: maxJugadores,
         precio: precioActual,
@@ -203,7 +207,7 @@ export class ReservaService {
 
               return {
                 ...f,
-                label: f.label || `${f.hora_inicio}–${f.hora_fin}`,
+                label: formatRangoHora12(f.hora_inicio, f.hora_fin),
                 fecha: fechaSegura,
                 disponible: isDisp,
                 estado: normEstado,
@@ -344,7 +348,15 @@ export class ReservaService {
       return {
         ok: false,
         status: 400,
-        error: 'Debés seleccionar una fecha válida (YYYY-MM-DD) y una franja horaria oficial (16:00 a 22:00).'
+        error: 'Debés seleccionar una fecha válida y una franja horaria oficial (4:00 PM a 10:00 PM).'
+      };
+    }
+
+    if (esFranjaPasada(fecha, hora_inicio)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Ese horario ya pasó según la hora actual. Seleccioná una hora futura disponible.'
       };
     }
 
@@ -493,7 +505,15 @@ export class ReservaService {
       return {
         ok: false,
         status: 400,
-        error: 'Debés seleccionar una fecha válida (YYYY-MM-DD) y una franja horaria oficial (16:00 a 22:00).'
+        error: 'Debés seleccionar una fecha válida y una franja horaria oficial (4:00 PM a 10:00 PM).'
+      };
+    }
+
+    if (esFranjaPasada(fecha, hora_inicio)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Ese horario ya pasó según la hora actual. Seleccioná una hora futura disponible.'
       };
     }
 

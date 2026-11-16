@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
 import { AgendaManager, AuthMiddleware } from '@/lib/services';
-import { formatFechaCorta, formatDDMMYYYY, getFechaHoyISO } from '@/lib/utils';
+import {
+  formatFechaCorta,
+  formatDDMMYYYY,
+  formatHora12,
+  formatRangoHora12,
+  getFechaHoyISO
+} from '@/lib/utils';
 import {
   FaWrench,
   FaBan,
@@ -16,13 +22,13 @@ import {
 } from 'react-icons/fa6';
 
 const FRANJAS_HORAS = [
-  { inicio: '16:00', label: '16:00 – 17:00' },
-  { inicio: '17:00', label: '17:00 – 18:00' },
-  { inicio: '18:00', label: '18:00 – 19:00' },
-  { inicio: '19:00', label: '19:00 – 20:00' },
-  { inicio: '20:00', label: '20:00 – 21:00' },
-  { inicio: '21:00', label: '21:00 – 22:00' },
-  { inicio: '22:00', label: '22:00 – 23:00' }
+  { inicio: '16:00', label: '4:00 PM – 5:00 PM' },
+  { inicio: '17:00', label: '5:00 PM – 6:00 PM' },
+  { inicio: '18:00', label: '6:00 PM – 7:00 PM' },
+  { inicio: '19:00', label: '7:00 PM – 8:00 PM' },
+  { inicio: '20:00', label: '8:00 PM – 9:00 PM' },
+  { inicio: '21:00', label: '9:00 PM – 10:00 PM' },
+  { inicio: '22:00', label: '10:00 PM – 11:00 PM' }
 ];
 
 const MOTIVOS_FRECUENTES = [
@@ -125,7 +131,7 @@ export default function AdminBloqueosPage() {
 
     setMensajeExito(
       `Horario bloqueado exitosamente el ${formatDDMMYYYY(fecha)} (${
-        diaCompleto ? 'Jornada completa 16:00–23:00' : `${horaInicio} hs`
+        diaCompleto ? 'Jornada completa 4:00 PM – 11:00 PM' : formatHora12(horaInicio)
       }) por "${motivo}". Ya aparece como Mantenimiento en el calendario público.`
     );
     cargarBloqueos();
@@ -209,7 +215,7 @@ export default function AdminBloqueosPage() {
                   onChange={(e) => setDiaCompleto(e.target.checked)}
                   className="rounded border-slate-300 text-cancha-800"
                 />
-                <span>Bloquear toda la jornada (16:00–23:00)</span>
+                <span>Bloquear toda la jornada (4:00 PM – 11:00 PM)</span>
               </label>
             </div>
 
@@ -284,8 +290,8 @@ export default function AdminBloqueosPage() {
               >
                 <div>
                   <p className="text-xs sm:text-sm font-extrabold text-slate-900 capitalize">
-                    {formatFechaCorta(b.fecha)} ({formatDDMMYYYY(b.fecha)}) · {b.hora_inicio}–
-                    {b.hora_fin}
+                    {formatFechaCorta(b.fecha)} ({formatDDMMYYYY(b.fecha)}) ·{' '}
+                    {formatRangoHora12(b.hora_inicio, b.hora_fin)}
                   </p>
                   <p className="text-xs font-semibold text-slate-600 mt-0.5">
                     Motivo: {b.motivo}

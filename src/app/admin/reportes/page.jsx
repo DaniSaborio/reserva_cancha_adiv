@@ -8,7 +8,7 @@ import {
   PagoService,
   AuthMiddleware
 } from '@/lib/services';
-import { formatColones, formatDDMMYYYY } from '@/lib/utils';
+import { formatColones, formatDDMMYYYY, formatRangoHora12 } from '@/lib/utils';
 import {
   FaFileCsv,
   FaPrint,
@@ -290,7 +290,7 @@ export default function AdminReportesPage() {
                 <tr key={r.id} className="hover:bg-slate-50/80">
                   <td className="py-3 px-2 font-black text-slate-900">{r.codigo_reserva}</td>
                   <td className="py-3 px-2 font-semibold text-slate-700">
-                    {formatDDMMYYYY(r.fecha_reserva)} · {r.hora_inicio}–{r.hora_fin}
+                    {formatDDMMYYYY(r.fecha_reserva)} · {formatRangoHora12(r.hora_inicio, r.hora_fin)}
                   </td>
                   <td className="py-3 px-2 font-bold text-slate-900">{r.cliente_nombre}</td>
                   <td className="py-3 px-2 text-slate-600">{r.cliente_telefono}</td>

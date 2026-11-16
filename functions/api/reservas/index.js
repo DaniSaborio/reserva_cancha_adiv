@@ -20,6 +20,30 @@ function secureCodeSuffix() {
   return String(Math.floor(10 + Math.random() * 90));
 }
 
+function esFranjaPasadaCR(fechaISO, horaInicio) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Costa_Rica',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    const hoyCR = `${map.year}-${map.month}-${map.day}`;
+    if (fechaISO < hoyCR) return true;
+    if (fechaISO > hoyCR) return false;
+    const hActual = Number(map.hour) === 24 ? 0 : Number(map.hour);
+    const mActual = Number(map.minute) || 0;
+    const [hh, mm] = String(horaInicio).split(':').map(Number);
+    return hActual * 60 + mActual >= (hh || 0) * 60 + (mm || 0);
+  } catch {
+    return false;
+  }
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   try {
@@ -46,6 +70,13 @@ export async function onRequestPost(context) {
     ) {
       return Response.json(
         { error: 'Datos incompletos o con formato inválido para procesar la reserva.' },
+        { status: 400, headers: SEC_HEADERS }
+      );
+    }
+
+    if (esFranjaPasadaCR(fecha, hora)) {
+      return Response.json(
+        { error: 'Ese horario ya pasó según la hora actual de Costa Rica. Elegí una hora futura.' },
         { status: 400, headers: SEC_HEADERS }
       );
     }

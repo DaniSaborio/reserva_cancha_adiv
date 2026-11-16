@@ -4,7 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ReservaService } from '@/lib/services';
-import { formatColones, formatFechaCorta, getFechaHoyISO } from '@/lib/utils';
+import {
+  formatColones,
+  formatFechaCorta,
+  formatRangoHora12,
+  getAhoraCostaRica,
+  esFranjaPasada,
+  sumarDiasISO
+} from '@/lib/utils';
 import {
   FaArrowLeft,
   FaMobileScreenButton,
@@ -24,6 +31,7 @@ export default function ReservarPage() {
 
   const [fecha, setFecha] = useState('2026-11-06');
   const [horaInicio, setHoraInicio] = useState('16:00');
+  const [ahoraCR, setAhoraCR] = useState(null);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [cantidadPersonas, setCantidadPersonas] = useState(10);
@@ -35,20 +43,38 @@ export default function ReservarPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const cr = getAhoraCostaRica();
+      setAhoraCR(cr);
       const params = new URLSearchParams(window.location.search);
       const f = params.get('fecha');
       const h = params.get('hora');
-      if (f) setFecha(f);
-      else setFecha(getFechaHoyISO());
+      const fechaInicial = f && f >= cr.fechaISO ? f : cr.fechaISO;
+      setFecha(fechaInicial);
       if (h) setHoraInicio(h);
+
+      const actualizarReloj = () => setAhoraCR(getAhoraCostaRica());
+      const intervalId = setInterval(actualizarReloj, 30000);
+      window.addEventListener('focus', actualizarReloj);
+      return () => {
+        clearInterval(intervalId);
+        window.removeEventListener('focus', actualizarReloj);
+      };
     }
   }, []);
 
   useEffect(() => {
+    const cr = getAhoraCostaRica();
     const disp = ReservaService.verificarDisponibilidad(fecha);
     setFranjasDelDia(disp);
     const maxLocal = Number(disp[0]?.max_jugadores) || 16;
     setCantidadPersonas((prev) => (Number(prev) > maxLocal ? maxLocal : prev));
+
+    // Si la hora seleccionada ya pasó hoy, seleccionar la primera hora futura disponible
+    const visiblesLocal = disp.filter((f) => !esFranjaPasada(fecha, f.hora_inicio, cr));
+    if (visiblesLocal.length > 0 && !visiblesLocal.some((f) => f.hora_inicio === horaInicio)) {
+      const primeraDisp = visiblesLocal.find((f) => f.disponible) || visiblesLocal[0];
+      setHoraInicio(primeraDisp.hora_inicio);
+    }
 
     ReservaService.verificarDisponibilidadAsync(fecha).then((remotas) => {
       if (remotas && remotas.length) {
@@ -58,6 +84,10 @@ export default function ReservarPage() {
       }
     });
   }, [fecha, horaInicio]);
+
+  const franjasVisibles = ahoraCR
+    ? franjasDelDia.filter((f) => !esFranjaPasada(fecha, f.hora_inicio, ahoraCR))
+    : franjasDelDia;
 
   const horaNum = parseInt(horaInicio.split(':')[0], 10) || 16;
   const horaFin = `${String(horaNum + 1).padStart(2, '0')}:00`;
@@ -198,7 +228,7 @@ export default function ReservarPage() {
                     <span className="flex items-center gap-2">
                       <FaHandPointRight className="w-3.5 h-3.5 text-cancha-700" />
                       <span>
-                        Elegir {alt.hora_inicio} - {alt.hora_fin}
+                        Elegir {formatRangoHora12(alt.hora_inicio, alt.hora_fin)}
                       </span>
                     </span>
                     <span className="text-xs font-extrabold text-cancha-800">
@@ -236,7 +266,7 @@ export default function ReservarPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500">Turno seleccionado:</p>
               <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 capitalize">
-                {formatFechaCorta(fecha)} · {horaInicio}-{horaFin} ·{' '}
+                {formatFechaCorta(fecha)} · {formatRangoHora12(horaInicio, horaFin)} ·{' '}
                 {formatColones(precioUnitario)} / {tipoCobro === 'por_persona' ? 'persona' : 'hora'}
               </p>
             </div>
@@ -252,6 +282,7 @@ export default function ReservarPage() {
               </label>
               <input
                 type="date"
+                min={ahoraCR?.fechaISO || undefined}
                 value={fecha}
                 onChange={(e) => {
                   setFecha(e.target.value);
@@ -264,23 +295,33 @@ export default function ReservarPage() {
               <label className="block text-[11px] font-bold text-slate-500 mb-1">
                 Cambiar franja horaria
               </label>
-              <select
-                value={horaInicio}
-                onChange={(e) => {
-                  setHoraInicio(e.target.value);
-                  setColisionInfo(null);
-                }}
-                className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2"
-              >
-                {franjasDelDia.map((f) => (
-                  <option key={f.hora_inicio} value={f.hora_inicio}>
-                    {f.label || `${f.hora_inicio}–${f.hora_fin}`} —{' '}
-                    {f.disponible
-                      ? `Libre (${formatColones(f.precio || precioUnitario)}/${tipoCobro === 'por_persona' ? 'pers.' : 'h'})`
-                      : f.estado}
-                  </option>
-                ))}
-              </select>
+              {franjasVisibles.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setFecha(sumarDiasISO(ahoraCR?.fechaISO || fecha, 1))}
+                  className="w-full text-xs font-bold text-cancha-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl px-3 py-2 text-left"
+                >
+                  Hoy sin turnos · Cambiar a mañana →
+                </button>
+              ) : (
+                <select
+                  value={horaInicio}
+                  onChange={(e) => {
+                    setHoraInicio(e.target.value);
+                    setColisionInfo(null);
+                  }}
+                  className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2"
+                >
+                  {franjasVisibles.map((f) => (
+                    <option key={f.hora_inicio} value={f.hora_inicio}>
+                      {formatRangoHora12(f.hora_inicio, f.hora_fin)} —{' '}
+                      {f.disponible
+                        ? `Libre (${formatColones(f.precio || precioUnitario)}/${tipoCobro === 'por_persona' ? 'pers.' : 'h'})`
+                        : f.estado}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { ReservaService } from '@/lib/services';
 import {
   formatColones,
   formatFechaCorta,
+  formatRangoHora12,
   generarEnlaceWhatsApp
 } from '@/lib/utils';
 import {
@@ -209,7 +210,8 @@ export default function MiReservaPage() {
                 )}
                 <p className="capitalize">
                   <strong className="text-slate-900">Horario:</strong>{' '}
-                  {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
+                  {formatFechaCorta(reserva.fecha_reserva)} ·{' '}
+                  {formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)}
                 </p>
                 <p>
                   <strong className="text-slate-900">Método:</strong> {refTexto}
@@ -282,7 +284,8 @@ export default function MiReservaPage() {
             <div className="rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-1.5 text-xs sm:text-sm text-slate-800">
               <p className="capitalize">
                 <strong className="text-slate-900">Fecha:</strong>{' '}
-                {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
+                {formatFechaCorta(reserva.fecha_reserva)} ·{' '}
+                {formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)}
               </p>
               <p>
                 <strong className="text-slate-900">Cancha:</strong>{' '}
@@ -302,7 +305,7 @@ export default function MiReservaPage() {
 
             {/* Mensaje de tranquilidad (UI-08) */}
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 text-xs text-slate-600 leading-relaxed">
-              El horario {reserva.hora_inicio}-{reserva.hora_fin} sigue apartado para vos mientras el encargado registra la transferencia o el pago en caseta.
+              El horario {formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)} sigue apartado para vos mientras el encargado registra la transferencia o el pago en caseta.
             </div>
 
             <div className="grid sm:grid-cols-2 gap-2.5">

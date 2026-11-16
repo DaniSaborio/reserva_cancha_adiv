@@ -9,7 +9,7 @@ import {
   ReservaService,
   AuthMiddleware
 } from '@/lib/services';
-import { formatColones, formatFechaCorta, formatDDMMYYYY } from '@/lib/utils';
+import { formatColones, formatFechaCorta, formatDDMMYYYY, formatRangoHora12 } from '@/lib/utils';
 import {
   FaCheck,
   FaClock,
@@ -395,7 +395,7 @@ export default function AdminReservasPage() {
               >
                 {HORAS_DISPONIBLES.map((h) => (
                   <option key={h} value={h}>
-                    {h} – {parseInt(h, 10) + 1}:00
+                    {formatRangoHora12(h)}
                   </option>
                 ))}
               </select>
@@ -488,7 +488,8 @@ export default function AdminReservasPage() {
                     {r.codigo_reserva}
                   </span>
                   <span className="text-xs sm:text-sm font-extrabold text-slate-900 capitalize">
-                    {formatFechaCorta(r.fecha_reserva)} · {r.hora_inicio}–{r.hora_fin}
+                    {formatFechaCorta(r.fecha_reserva)} ·{' '}
+                    {formatRangoHora12(r.hora_inicio, r.hora_fin)}
                   </span>
                   {esConfirmada && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-cancha-900 border border-emerald-200">

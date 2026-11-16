@@ -90,6 +90,30 @@ function verifyBearerJwt(authHeader) {
   }
 }
 
+function esFranjaPasadaCR(fechaISO, horaInicio) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Costa_Rica',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    const hoyCR = `${map.year}-${map.month}-${map.day}`;
+    if (fechaISO < hoyCR) return true;
+    if (fechaISO > hoyCR) return false;
+    const hActual = Number(map.hour) === 24 ? 0 : Number(map.hour);
+    const mActual = Number(map.minute) || 0;
+    const [hh, mm] = String(horaInicio).split(':').map(Number);
+    return hActual * 60 + mActual >= (hh || 0) * 60 + (mm || 0);
+  } catch {
+    return false;
+  }
+}
+
 async function handleApiRequest(req, res, urlObj) {
   const pathname = urlObj.pathname.replace(/\/+$/, '') || '/';
   const method = req.method || 'GET';
@@ -167,6 +191,12 @@ async function handleApiRequest(req, res, urlObj) {
             personasNum > maxJugadores
               ? `El máximo permitido por turno es de ${maxJugadores} jugadores.`
               : 'Datos incompletos o con formato inválido para procesar la reserva.'
+        });
+      }
+
+      if (esFranjaPasadaCR(fecha, hora)) {
+        return sendJson(res, 400, {
+          error: 'Ese horario ya pasó según la hora actual de Costa Rica. Elegí una hora futura.'
         });
       }
 

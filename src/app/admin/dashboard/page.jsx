@@ -10,7 +10,13 @@ import {
   TarifaService,
   AuthMiddleware
 } from '@/lib/services';
-import { formatColones, formatDDMMYYYY, formatFechaCorta, getFechaHoyISO } from '@/lib/utils';
+import {
+  formatColones,
+  formatDDMMYYYY,
+  formatFechaCorta,
+  formatRangoHora12,
+  getFechaHoyISO
+} from '@/lib/utils';
 import {
   FaCheck,
   FaClock,
@@ -145,7 +151,10 @@ export default function AdminDashboardPage() {
       session?.token
     );
     setAvisoExito(
-      `Reserva ${reserva.codigo_reserva} cancelada. El horario ${reserva.hora_inicio}–${reserva.hora_fin} quedó libre en el calendario público.`
+      `Reserva ${reserva.codigo_reserva} cancelada. El horario ${formatRangoHora12(
+        reserva.hora_inicio,
+        reserva.hora_fin
+      )} quedó libre en el calendario público.`
     );
     setReservaAbiertaId(null);
     recargarDatos();
@@ -178,7 +187,7 @@ export default function AdminDashboardPage() {
 
     const unidad = res.tarifas.tipo_cobro === 'por_persona' ? 'persona' : 'hora';
     const textoNuevaTarifa = res.tarifas.modo_diferenciado
-      ? `Diurna (16:00–18:00): ${formatColones(res.tarifas.tarifa_diurna)} / ${unidad} · Nocturna (18:00–23:00): ${formatColones(res.tarifas.tarifa_nocturna)} / ${unidad}`
+      ? `Diurna (4:00 PM–6:00 PM): ${formatColones(res.tarifas.tarifa_diurna)} / ${unidad} · Nocturna (6:00 PM–11:00 PM): ${formatColones(res.tarifas.tarifa_nocturna)} / ${unidad}`
       : `${formatColones(res.tarifas.tarifa_hora)} por ${unidad} en todos los horarios`;
 
     const resumenGuardado = `${textoNuevaTarifa} · Máx. ${res.tarifas.max_jugadores} jugadores por turno.`;
@@ -457,7 +466,7 @@ export default function AdminDashboardPage() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Única (16–23h)
+                    Única (4 PM – 11 PM)
                   </button>
                   <button
                     type="button"
@@ -483,8 +492,8 @@ export default function AdminDashboardPage() {
                       className="block text-xs font-extrabold text-slate-700 mb-1"
                     >
                       {tipoCobro === 'por_persona'
-                        ? 'Precio por persona (₡ Colones) — Todas las franjas (16:00 a 23:00)'
-                        : 'Precio por hora de cancha (₡ Colones) — Todas las franjas (16:00 a 23:00)'}
+                        ? 'Precio por persona (₡ Colones) — Todas las franjas (4:00 PM a 11:00 PM)'
+                        : 'Precio por hora de cancha (₡ Colones) — Todas las franjas (4:00 PM a 11:00 PM)'}
                     </label>
                     <input
                       id="input-tarifa-unica"
@@ -536,7 +545,7 @@ export default function AdminDashboardPage() {
                     htmlFor="input-tarifa-diurna"
                     className="block text-xs font-extrabold text-slate-700 mb-1"
                   >
-                    Tarifa Diurna (16:00 a 18:00) — ₡{' '}
+                    Tarifa Diurna (4:00 PM a 6:00 PM) — ₡{' '}
                     {tipoCobro === 'por_persona' ? 'por persona' : 'por hora'}
                   </label>
                   <input
@@ -556,7 +565,7 @@ export default function AdminDashboardPage() {
                     htmlFor="input-tarifa-nocturna"
                     className="block text-xs font-extrabold text-slate-700 mb-1"
                   >
-                    Tarifa Nocturna Luz LED (18:00 a 23:00) — ₡{' '}
+                    Tarifa Nocturna Luz LED (6:00 PM a 11:00 PM) — ₡{' '}
                     {tipoCobro === 'por_persona' ? 'por persona' : 'por hora'}
                   </label>
                   <input
@@ -840,7 +849,7 @@ export default function AdminDashboardPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs sm:text-sm font-extrabold text-slate-900">
-                            {res.hora_inicio}–{res.hora_fin}
+                            {formatRangoHora12(res.hora_inicio, res.hora_fin)}
                           </span>
                           <span className="text-[11px] font-bold text-slate-400">
                             · {res.codigo_reserva}

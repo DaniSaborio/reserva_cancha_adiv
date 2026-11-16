@@ -7,10 +7,14 @@ import {
   formatColones,
   formatFechaLarga,
   formatDDMMYYYY,
+  formatHora12,
+  formatRangoHora12,
   sumarDiasISO,
   obtenerLunesDeSemana,
   parseFechaISO,
-  getFechaHoyISO
+  getFechaHoyISO,
+  getAhoraCostaRica,
+  esFranjaPasada
 } from '@/lib/utils';
 import {
   FaChevronLeft,
@@ -37,6 +41,7 @@ export default function HomePage() {
   // Fecha inicial: 2026-11-06 (Viernes 6 de noviembre de 2026) como en UI-01, UI-02, UI-03 y Datos Semilla
   const [vista, setVista] = useState('dia'); // 'dia' | 'semana' | 'mes'
   const [hoyISO, setHoyISO] = useState('');
+  const [ahoraCR, setAhoraCR] = useState(null);
   const [fechaSeleccionada, setFechaSeleccionada] = useState('2026-11-06');
   const [franjasDia, setFranjasDia] = useState([]);
   const [celdaSemanalActiva, setCeldaSemanalActiva] = useState({
@@ -73,15 +78,19 @@ export default function HomePage() {
     }
     setMatrizSemana(diasDeSemana);
 
-    // Ajustar celda semanal activa si la fecha cambió
-    const primeraLibre = franjas.find((f) => f.disponible) || franjas[0];
+    // Ajustar celda semanal activa si la fecha cambió (priorizando franjas que no hayan pasado)
+    const crNow = getAhoraCostaRica();
+    const primeraLibre =
+      franjas.find((f) => f.disponible && !esFranjaPasada(fechaSeleccionada, f.hora_inicio, crNow)) ||
+      franjas.find((f) => !esFranjaPasada(fechaSeleccionada, f.hora_inicio, crNow)) ||
+      franjas[0];
     if (primeraLibre) {
       setCeldaSemanalActiva({
         fecha: fechaSeleccionada,
         hora_inicio: primeraLibre.hora_inicio,
         hora_fin: primeraLibre.hora_fin,
         precio: primeraLibre.precio,
-        disponible: primeraLibre.disponible,
+        disponible: primeraLibre.disponible && !esFranjaPasada(fechaSeleccionada, primeraLibre.hora_inicio, crNow),
         estado: primeraLibre.estado
       });
     }
@@ -120,15 +129,31 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hoy = getFechaHoyISO();
-      setHoyISO(hoy);
+      const cr = getAhoraCostaRica();
+      setAhoraCR(cr);
+      setHoyISO(cr.fechaISO);
       const params = new URLSearchParams(window.location.search);
       const f = params.get('fecha');
-      if (f) {
+      if (f && f >= cr.fechaISO) {
         setFechaSeleccionada(f);
       } else {
-        setFechaSeleccionada(hoy);
+        setFechaSeleccionada(cr.fechaISO);
       }
+
+      const actualizarReloj = () => {
+        const actualizado = getAhoraCostaRica();
+        setAhoraCR(actualizado);
+        setHoyISO(actualizado.fechaISO);
+      };
+
+      const intervalId = setInterval(actualizarReloj, 30000);
+      window.addEventListener('focus', actualizarReloj);
+      document.addEventListener('visibilitychange', actualizarReloj);
+      return () => {
+        clearInterval(intervalId);
+        window.removeEventListener('focus', actualizarReloj);
+        document.removeEventListener('visibilitychange', actualizarReloj);
+      };
     }
   }, []);
 
@@ -176,7 +201,10 @@ export default function HomePage() {
     ? `${MESES_TITULO[domingoSemana.getMonth()]} ${domingoSemana.getFullYear()} · ${lunesSemana.getDate()}–${domingoSemana.getDate()}`
     : `${lunesSemana.getDate()} ${MESES_TITULO[lunesSemana.getMonth()].slice(0, 3)} – ${domingoSemana.getDate()} ${MESES_TITULO[domingoSemana.getMonth()].slice(0, 3)} ${domingoSemana.getFullYear()}`;
 
-  const horasLibresHoy = franjasDia.filter((f) => f.disponible).length;
+  const franjasVisibles = ahoraCR
+    ? franjasDia.filter((f) => !esFranjaPasada(fechaSeleccionada, f.hora_inicio, ahoraCR))
+    : franjasDia;
+  const horasLibresHoy = franjasVisibles.filter((f) => f.disponible).length;
   const tipoCobroHoy =
     franjasDia.find((f) => f.tipo_cobro)?.tipo_cobro === 'por_cancha'
       ? 'por_cancha'
@@ -335,11 +363,14 @@ export default function HomePage() {
                   <FaCalendarDay className="w-4 h-4 text-cancha-700 shrink-0" />
                   <span>{formatDDMMYYYY(fechaSeleccionada)}</span>
                   {hoyISO && fechaSeleccionada === hoyISO && (
-                    <span className="text-xs font-semibold text-cancha-700">· Hoy</span>
+                    <span className="text-xs font-semibold text-cancha-700">
+                      · Hoy {ahoraCR?.hora12 ? `(${ahoraCR.hora12})` : ''}
+                    </span>
                   )}
                 </div>
                 <input
                   type="date"
+                  min={hoyISO || undefined}
                   value={fechaSeleccionada}
                   onChange={(e) => e.target.value && setFechaSeleccionada(e.target.value)}
                   className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cancha-600"
@@ -348,20 +379,39 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Bloque de Horarios disponibles (16:00-23:00 · ₡16 000 por hora) */}
+            {/* Bloque de Horarios disponibles (4:00 PM–11:00 PM) */}
             <div className="space-y-3">
               <div>
                 <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
                   Horarios disponibles
                 </h2>
                 <p className="text-xs font-semibold text-slate-500">
-                  16:00–23:00 · {textoTarifaActiva} · Máx. {maxJugadoresHoy} jugadores
+                  4:00 PM – 11:00 PM · {textoTarifaActiva} · Máx. {maxJugadoresHoy} jugadores
                 </p>
               </div>
 
+              {franjasVisibles.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center space-y-3">
+                  <p className="text-xs sm:text-sm font-bold text-slate-700">
+                    {hoyISO && fechaSeleccionada < hoyISO
+                      ? 'Esta fecha ya pasó. Seleccioná hoy o un día próximo para ver horarios disponibles.'
+                      : 'Ya pasaron todos los horarios disponibles para hoy.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFechaSeleccionada(sumarDiasISO(hoyISO || fechaSeleccionada, 1))
+                    }
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cancha-800 hover:bg-cancha-900 text-white text-xs font-extrabold transition-colors"
+                  >
+                    <span>Ver horarios de mañana</span>
+                    <FaArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
               <div className="grid gap-2.5">
-                {franjasDia.map((franja) => {
-                  const labelFranja = franja.label || `${franja.hora_inicio}–${franja.hora_fin}`;
+                {franjasVisibles.map((franja) => {
+                  const labelFranja = formatRangoHora12(franja.hora_inicio, franja.hora_fin);
 
                   if (franja.estado === 'Libre') {
                     return (
@@ -454,6 +504,7 @@ export default function HomePage() {
                   );
                 })}
               </div>
+              )}
             </div>
           </div>
         )}
@@ -513,16 +564,31 @@ export default function HomePage() {
                   {['16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'].map((hora) => (
                     <tr key={hora}>
                       <td className="text-xs font-extrabold text-slate-700 text-left px-1 py-1 whitespace-nowrap">
-                        {hora}
+                        {formatHora12(hora)}
                       </td>
                       {matrizSemana.map((col) => {
+                        const yaPaso = ahoraCR ? esFranjaPasada(col.fecha, hora, ahoraCR) : false;
                         const franja = col.franjas.find((f) => f.hora_inicio === hora) || {
                           hora_inicio: hora,
                           hora_fin: `${parseInt(hora, 10) + 1}:00`,
                           estado: 'Libre',
                           disponible: true,
-                          precio: 16000
+                          precio: precioDefault
                         };
+
+                        if (yaPaso) {
+                          return (
+                            <td key={`${col.fecha}-${hora}`}>
+                              <div
+                                aria-disabled="true"
+                                className="w-full h-9 sm:h-10 rounded-xl border border-slate-100 bg-slate-50/70 text-slate-300 flex items-center justify-center text-xs select-none"
+                                title={`${col.nombreCorto} ${col.diaNumero} · ${formatHora12(hora)} (Horario pasado)`}
+                              >
+                                —
+                              </div>
+                            </td>
+                          );
+                        }
 
                         const seleccionada =
                           celdaSemanalActiva.fecha === col.fecha &&
@@ -554,13 +620,13 @@ export default function HomePage() {
                                   diaMinuscula: col.nombreMinuscula,
                                   hora_inicio: franja.hora_inicio,
                                   hora_fin: franja.hora_fin,
-                                  precio: franja.precio || 16000,
+                                  precio: franja.precio || precioDefault,
                                   disponible: franja.disponible,
                                   estado: franja.estado
                                 });
                               }}
                               className={`w-full h-9 sm:h-10 rounded-xl border flex items-center justify-center text-xs transition-all ${cellStyle}`}
-                              title={`${col.nombreCorto} ${col.diaNumero} · ${hora} (${franja.estado})`}
+                              title={`${col.nombreCorto} ${col.diaNumero} · ${formatHora12(hora)} (${franja.estado})`}
                             >
                               {franja.estado === 'Libre' && <FaRegCircle className="w-3 h-3" />}
                               {franja.estado === 'Ocupado' && <FaCheck className="w-3 h-3" />}
@@ -589,7 +655,7 @@ export default function HomePage() {
                 <div className="flex justify-between items-center py-1 border-b border-slate-200/70">
                   <span className="text-slate-500 font-medium">Hora</span>
                   <span className="font-extrabold text-slate-900">
-                    {celdaSemanalActiva.hora_inicio}–{celdaSemanalActiva.hora_fin}
+                    {formatRangoHora12(celdaSemanalActiva.hora_inicio, celdaSemanalActiva.hora_fin)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-1">
@@ -602,10 +668,11 @@ export default function HomePage() {
 
               <p className="text-[11px] text-slate-500">
                 Cada celda representa una hora. Selección: {formatFechaLarga(celdaSemanalActiva.fecha)},{' '}
-                {celdaSemanalActiva.hora_inicio}–{celdaSemanalActiva.hora_fin}.
+                {formatRangoHora12(celdaSemanalActiva.hora_inicio, celdaSemanalActiva.hora_fin)}.
               </p>
 
-              {celdaSemanalActiva.disponible ? (
+              {celdaSemanalActiva.disponible &&
+              !(ahoraCR && esFranjaPasada(celdaSemanalActiva.fecha, celdaSemanalActiva.hora_inicio, ahoraCR)) ? (
                 <button
                   onClick={() =>
                     irAReservar(celdaSemanalActiva.fecha, celdaSemanalActiva.hora_inicio)
@@ -614,7 +681,7 @@ export default function HomePage() {
                 >
                   <span>
                     Reservar {NOMBRES_DIA_COMPLETO[parseFechaISO(celdaSemanalActiva.fecha).getDay()]} a las{' '}
-                    {celdaSemanalActiva.hora_inicio}
+                    {formatHora12(celdaSemanalActiva.hora_inicio)}
                   </span>
                   <FaArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -669,12 +736,16 @@ export default function HomePage() {
                 {diasMes.map((item) => {
                   const seleccionado = item.fecha === fechaSeleccionada;
                   const tieneReservas = item.ocupadas > 0;
+                  const diaPasado = hoyISO && item.fecha < hoyISO;
                   return (
                     <button
                       key={item.fecha}
+                      disabled={Boolean(diaPasado)}
                       onClick={() => setFechaSeleccionada(item.fecha)}
                       className={`h-10 rounded-xl text-xs font-bold flex flex-col items-center justify-center transition-all border ${
-                        seleccionado
+                        diaPasado
+                          ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                          : seleccionado
                           ? 'bg-emerald-100 text-cancha-950 border-cancha-700 font-extrabold shadow-sm'
                           : item.libres > 0
                           ? 'bg-white hover:bg-emerald-50/60 text-slate-800 border-slate-100'
@@ -683,11 +754,11 @@ export default function HomePage() {
                     >
                       <span className="flex items-center gap-0.5">
                         {item.dia}
-                        {seleccionado && (
+                        {seleccionado && !diaPasado && (
                           <span className="w-1.5 h-1.5 rounded-full bg-cancha-800 inline-block" />
                         )}
                       </span>
-                      {tieneReservas && item.libres > 0 && !seleccionado && (
+                      {tieneReservas && item.libres > 0 && !seleccionado && !diaPasado && (
                         <span className="w-1 h-1 rounded-full bg-emerald-600 mt-0.5" />
                       )}
                     </button>
@@ -716,46 +787,52 @@ export default function HomePage() {
               </div>
 
               <div className="grid gap-2">
-                {franjasDia.map((franja) => {
-                  const labelFranja = franja.label || `${franja.hora_inicio}–${franja.hora_fin}`;
-                  return (
-                    <div key={franja.hora_inicio}>
-                      {franja.disponible ? (
-                        <button
-                          onClick={() => irAReservar(fechaSeleccionada, franja.hora_inicio)}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white hover:bg-emerald-50 border border-cancha-700/50 text-left transition-all"
-                        >
-                          <span className="text-sm font-extrabold text-slate-900 tabular-nums">
-                            {labelFranja}
-                          </span>
-                          <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
-                            <FaRegCircle className="w-2.5 h-2.5" />
-                            <span>Reservar</span>
-                          </span>
-                        </button>
-                      ) : (
-                        <div
-                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-xs font-bold ${
-                            franja.estado === 'Ocupado'
-                              ? 'bg-rose-50 border-rose-200 text-rose-800'
-                              : franja.estado === 'En proceso'
-                              ? 'bg-amber-50 border-amber-200 text-amber-800'
-                              : 'bg-slate-100 border-slate-300 text-slate-600'
-                          }`}
-                        >
-                          <span className="text-sm font-extrabold tabular-nums">{labelFranja}</span>
-                          <span className="shrink-0 whitespace-nowrap">
-                            {franja.estado === 'Ocupado'
-                              ? '✓ Ocupado'
-                              : franja.estado === 'En proceso'
-                              ? 'En proceso'
-                              : 'Mantenimiento'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {franjasVisibles.length === 0 ? (
+                  <p className="text-xs font-semibold text-slate-500 text-center py-3">
+                    No quedan horarios disponibles para esta fecha. Elegí otro día del calendario.
+                  </p>
+                ) : (
+                  franjasVisibles.map((franja) => {
+                    const labelFranja = formatRangoHora12(franja.hora_inicio, franja.hora_fin);
+                    return (
+                      <div key={franja.hora_inicio}>
+                        {franja.disponible ? (
+                          <button
+                            onClick={() => irAReservar(fechaSeleccionada, franja.hora_inicio)}
+                            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white hover:bg-emerald-50 border border-cancha-700/50 text-left transition-all"
+                          >
+                            <span className="text-sm font-extrabold text-slate-900 tabular-nums">
+                              {labelFranja}
+                            </span>
+                            <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-cancha-800 border border-emerald-200">
+                              <FaRegCircle className="w-2.5 h-2.5" />
+                              <span>Reservar</span>
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-xs font-bold ${
+                              franja.estado === 'Ocupado'
+                                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                                : franja.estado === 'En proceso'
+                                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                : 'bg-slate-100 border-slate-300 text-slate-600'
+                            }`}
+                          >
+                            <span className="text-sm font-extrabold tabular-nums">{labelFranja}</span>
+                            <span className="shrink-0 whitespace-nowrap">
+                              {franja.estado === 'Ocupado'
+                                ? '✓ Ocupado'
+                                : franja.estado === 'En proceso'
+                                ? 'En proceso'
+                                : 'Mantenimiento'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

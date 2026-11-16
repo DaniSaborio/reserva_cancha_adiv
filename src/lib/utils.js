@@ -62,6 +62,78 @@ export function obtenerLunesDeSemana(fechaStr) {
   return toFechaISO(d);
 }
 
+export function formatHora12(hora24) {
+  if (!hora24 || typeof hora24 !== 'string' || !hora24.includes(':')) {
+    return hora24 || '';
+  }
+  const [hhRaw, mmRaw] = hora24.split(':');
+  const hh = parseInt(hhRaw, 10);
+  const mm = String(parseInt(mmRaw, 10) || 0).padStart(2, '0');
+  if (!Number.isFinite(hh)) return hora24;
+  const periodo = hh >= 12 && hh < 24 ? 'PM' : 'AM';
+  const hora12 = hh % 12 || 12;
+  return `${hora12}:${mm} ${periodo}`;
+}
+
+export function formatRangoHora12(horaInicio, horaFin) {
+  if (!horaInicio) return '';
+  let hFin = horaFin;
+  if (!hFin && horaInicio.includes(':')) {
+    const hNum = parseInt(horaInicio.split(':')[0], 10);
+    if (Number.isFinite(hNum)) {
+      hFin = `${String(hNum + 1).padStart(2, '0')}:00`;
+    }
+  }
+  if (!hFin) return formatHora12(horaInicio);
+  return `${formatHora12(horaInicio)} – ${formatHora12(hFin)}`;
+}
+
+export function getAhoraCostaRica() {
+  try {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Costa_Rica',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(now);
+    const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    const hourNum = Number(map.hour) === 24 ? 0 : Number(map.hour);
+    const minNum = Number(map.minute) || 0;
+    const horaActual = `${String(hourNum).padStart(2, '0')}:${String(minNum).padStart(2, '0')}`;
+    return {
+      fechaISO: `${map.year}-${map.month}-${map.day}`,
+      horaActual,
+      hora12: formatHora12(horaActual),
+      minutosDelDia: hourNum * 60 + minNum
+    };
+  } catch {
+    const d = new Date();
+    const fechaISO = d.toISOString().slice(0, 10);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const horaActual = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return {
+      fechaISO,
+      horaActual,
+      hora12: formatHora12(horaActual),
+      minutosDelDia: h * 60 + m
+    };
+  }
+}
+
+export function esFranjaPasada(fechaISO, horaInicio, ahoraCR = getAhoraCostaRica()) {
+  if (!fechaISO || !horaInicio || !ahoraCR?.fechaISO) return false;
+  if (fechaISO < ahoraCR.fechaISO) return true;
+  if (fechaISO > ahoraCR.fechaISO) return false;
+  const [hh, mm] = String(horaInicio).split(':').map(Number);
+  const inicioMinutos = (hh || 0) * 60 + (mm || 0);
+  return ahoraCR.minutosDelDia >= inicioMinutos;
+}
+
 export function generarEnlaceWhatsApp(reserva, cancha) {
   if (!reserva) return 'https://wa.me/';
   const estadoPago = reserva.estado === 'Confirmada' ? 'Pago verificado y confirmado' : 'Pendiente de verificación';
@@ -77,7 +149,7 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
     `*Código:* ${reserva.codigo_reserva}`,
     `*Cancha:* ${cancha?.nombre_corto || 'Sintética comunal'}`,
     `*Fecha:* ${formatFechaCorta(reserva.fecha_reserva)}`,
-    `*Hora:* ${reserva.hora_inicio}–${reserva.hora_fin}`,
+    `*Hora:* ${formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)}`,
     `*Titular / Equipo:* ${reserva.cliente_nombre}`,
     reserva.cantidad_personas ? `*Asistentes:* ${reserva.cantidad_personas} personas` : null,
     `*${reserva.cantidad_personas ? 'Monto estimado' : 'Monto'}:* ${formatColones(reserva.monto_total)}`,

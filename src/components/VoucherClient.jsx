@@ -6,6 +6,7 @@ import { ReservaService } from '@/lib/services';
 import {
   formatColones,
   formatFechaCorta,
+  formatRangoHora12,
   generarEnlaceWhatsApp
 } from '@/lib/utils';
 import {
@@ -168,7 +169,8 @@ export default function VoucherClient({ initialCodigo = '' }) {
             </p>
             <p className="capitalize">
               <strong className="text-slate-900">Fecha:</strong>{' '}
-              {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
+              {formatFechaCorta(reserva.fecha_reserva)} ·{' '}
+              {formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)}
             </p>
             <p>
               <strong className="text-slate-900">Jugador / Equipo:</strong> {reserva.cliente_nombre}{' '}
@@ -265,7 +267,8 @@ export default function VoucherClient({ initialCodigo = '' }) {
             </p>
             <p className="capitalize">
               <strong className="text-slate-900">Horario:</strong>{' '}
-              {formatFechaCorta(reserva.fecha_reserva)} · {reserva.hora_inicio}-{reserva.hora_fin}
+              {formatFechaCorta(reserva.fecha_reserva)} ·{' '}
+              {formatRangoHora12(reserva.hora_inicio, reserva.hora_fin)}
             </p>
             {reserva.cantidad_personas && (
               <p>
