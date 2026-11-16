@@ -164,7 +164,7 @@ export default function VoucherClient({ initialCodigo = '' }) {
           <div className="rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2 text-xs sm:text-sm text-slate-800">
             <p>
               <strong className="text-slate-900">Cancha:</strong>{' '}
-              {cancha?.nombre_corto || 'Sintética comunal'} (ADI Venecia)
+              {cancha?.nombre_corto || 'Sintética Venecia'}
             </p>
             <p className="capitalize">
               <strong className="text-slate-900">Fecha:</strong>{' '}
@@ -199,7 +199,7 @@ export default function VoucherClient({ initialCodigo = '' }) {
             <p className="font-bold">
               Instrucciones SINPE: Transferir {formatColones(reserva.monto_total)} al número oficial{' '}
               <span className="underline">{cancha?.sinpe_oficial || '8888-9999'}</span> (
-              {cancha?.sinpe_titular || 'ADI Venecia'}) indicando{' '}
+              {cancha?.sinpe_titular || 'Cancha Sintética Venecia'}) indicando{' '}
               <span className="font-black">&quot;{reserva.codigo_reserva}&quot;</span> en el detalle.
             </p>
             <p className="text-xs text-blue-800/90 flex items-center gap-1.5">
@@ -288,7 +288,7 @@ export default function VoucherClient({ initialCodigo = '' }) {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-slate-600">
-            Conservá el comprobante hasta ver &quot;Pago confirmado&quot;. Entregá el dinero únicamente a administradores autorizados de la ADI Venecia.
+            Conservá el comprobante hasta ver &quot;Pago confirmado&quot;. Entregá el dinero únicamente a administradores autorizados de la cancha.
           </div>
 
           <div className="space-y-2.5 no-print">

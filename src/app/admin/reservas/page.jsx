@@ -441,7 +441,7 @@ export default function AdminReservasPage() {
 
           <div>
             <label className="block text-xs font-extrabold text-rose-900 mb-1">
-              Motivo de cancelación (para auditoría de la Asociación) *
+              Motivo de cancelación (para auditoría) *
             </label>
             <input
               type="text"

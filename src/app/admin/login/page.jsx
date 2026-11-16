@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
               Acceso Administrativo
             </h1>
             <p className="text-xs text-slate-500">
-              Asociación de Desarrollo Integral de Venecia
+              Cancha Sintética · Venecia de San Carlos
             </p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function AdminLoginPage() {
 
         <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
           <FaLock className="w-3 h-3 text-cancha-700" />
-          <span>Acceso exclusivo para personal autorizado de la ADI Venecia</span>
+          <span>Acceso exclusivo para personal autorizado</span>
         </div>
       </div>
     </div>

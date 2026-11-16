@@ -93,7 +93,7 @@ export default function PromoPortalMigrante() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
-                  Servicio Social · ADI Venecia
+                  Servicio Social · Venecia
                 </span>
                 <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
                   Portal de Información para Personas Migrantes

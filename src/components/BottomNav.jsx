@@ -32,7 +32,7 @@ export default function BottomNav() {
       match: (p) => p.startsWith('/mi-reserva')
     },
     {
-      label: 'Admin ADI',
+      label: 'Admin',
       href: '/admin/dashboard/',
       icon: FaChartPie,
       match: (p) => p.startsWith('/admin')

@@ -1,9 +1,9 @@
 {
   "cancha": {
     "id": 1,
-    "nombre": "Cancha Sintética Comunal — ADI Venecia",
-    "nombre_corto": "Sintética comunal",
-    "organizacion": "Asociación de Desarrollo Integral de Venecia",
+    "nombre": "Cancha Sintética Comunal — Venecia",
+    "nombre_corto": "Sintética Venecia",
+    "organizacion": "Cancha Sintética Venecia",
     "ubicacion": "Venecia de San Carlos, Alajuela, Costa Rica (Contiguo al Salón Comunal)",
     "tarifa_hora": 16000,
     "tipo_cobro": "por_persona",
@@ -11,7 +11,7 @@
     "precio_persona_nocturna": 1500,
     "max_jugadores": 16,
     "sinpe_oficial": "8888-9999",
-    "sinpe_titular": "Asociación de Desarrollo Integral de Venecia (ADI Venecia)",
+    "sinpe_titular": "Cancha Sintética Venecia",
     "telefono_encargado": "2472-8000",
     "horario_apertura": "16:00",
     "horario_cierre": "23:00"
@@ -118,7 +118,7 @@
       "id": 5,
       "codigo_reserva": "CAN-2026-05",
       "cancha_id": 1,
-      "cliente_nombre": "Asociación Veteranos",
+      "cliente_nombre": "Deportivo Veteranos",
       "cliente_telefono": "8822-9900",
       "fecha_reserva": "2026-11-07",
       "hora_inicio": "18:00",

@@ -28,8 +28,8 @@ const FRANJAS_HORAS = [
 const MOTIVOS_FRECUENTES = [
   'Reparación de iluminación LED',
   'Mantenimiento preventivo de césped sintético',
-  'Torneo Comunal ADI Venecia',
-  'Actividad oficial de la Asociación de Desarrollo',
+  'Torneo Comunal de Venecia',
+  'Actividad oficial de la comunidad',
   'Cierre preventivo por condiciones climáticas / lluvia'
 ];
 

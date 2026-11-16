@@ -1,7 +1,7 @@
 {
-  "name": "CanchaApp — Sistema de Reservas Cancha Sintética ADI Venecia",
+  "name": "CanchaApp — Sistema de Reservas Cancha Sintética Venecia",
   "short_name": "CanchaApp Venecia",
-  "description": "Plataforma comunitaria de reserva de turnos en tiempo real y control financiero Efectivo/SINPE para la Cancha Sintética de la Asociación de Desarrollo Integral de Venecia.",
+  "description": "Plataforma comunitaria de reserva de turnos en tiempo real y control financiero Efectivo/SINPE para la Cancha Sintética de Venecia de San Carlos.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F5F6F3",

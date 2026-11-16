@@ -104,7 +104,7 @@ export default function AdminReportesPage() {
             Reportes Financieros y Exportación Contable
           </h1>
           <p className="text-xs sm:text-sm font-semibold text-slate-500">
-            Cierres por rango de fechas y exportación directa a Excel / CSV para la Tesorería y Fiscalía de la ADI Venecia
+            Cierres por rango de fechas y exportación directa a Excel / CSV para Tesorería y Administración
           </p>
         </div>
 
@@ -265,7 +265,7 @@ export default function AdminReportesPage() {
             Detalle Contable de Reservas e Ingresos ({registros.length})
           </h2>
           <span className="text-xs font-semibold text-slate-500">
-            Asociación de Desarrollo Integral de Venecia
+            Cancha Sintética Venecia
           </span>
         </div>
 

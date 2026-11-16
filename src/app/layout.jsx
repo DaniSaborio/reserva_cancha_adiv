@@ -4,9 +4,9 @@ import BottomNav from '@/components/BottomNav';
 import PromoPortalMigrante from '@/components/PromoPortalMigrante';
 
 export const metadata = {
-  title: 'CanchaApp — Sistema de Gestión de Reservas para Cancha Comunal (ADI Venecia)',
+  title: 'CanchaApp — Sistema de Gestión de Reservas · Cancha Sintética Venecia',
   description:
-    'Plataforma web para la reserva de horarios en tiempo real y control contable Efectivo/SINPE de la cancha sintética de la Asociación de Desarrollo Integral de Venecia.',
+    'Plataforma web para la reserva de horarios en tiempo real y control contable Efectivo/SINPE de la cancha sintética de Venecia de San Carlos.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icons/icon-192.svg',

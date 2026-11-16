@@ -66,7 +66,7 @@ function parsePermisos(rawPermisos, rol) {
 async function ensureUsuariosSchema(db) {
   if (!db) return;
   try {
-    await db.prepare("ALTER TABLE usuarios_admin ADD COLUMN cargo TEXT DEFAULT 'Directiva ADI'").run();
+    await db.prepare("ALTER TABLE usuarios_admin ADD COLUMN cargo TEXT DEFAULT 'Administración'").run();
   } catch {}
   try {
     await db.prepare('ALTER TABLE usuarios_admin ADD COLUMN permisos TEXT').run();
@@ -136,7 +136,7 @@ export async function onRequestPost(context) {
       .replace(/[<>]/g, '')
       .trim()
       .slice(0, 80);
-    const cargo = String(body.cargo || 'Directiva ADI')
+    const cargo = String(body.cargo || 'Administración')
       .replace(/[<>]/g, '')
       .trim()
       .slice(0, 80);
@@ -242,7 +242,7 @@ export async function onRequestPatch(context) {
       const nextCargo =
         body.cargo !== undefined
           ? String(body.cargo).replace(/[<>]/g, '').trim().slice(0, 80)
-          : current.cargo || 'Directiva ADI';
+          : current.cargo || 'Administración';
       const nextEmail =
         body.email !== undefined
           ? String(body.email).replace(/[<>]/g, '').trim().toLowerCase().slice(0, 80)

@@ -771,8 +771,8 @@ export default function HomePage() {
           </p>
 
           <div className="pt-1 text-[11px] font-semibold text-slate-400 flex flex-wrap items-center justify-between gap-2">
-            <span>Cancha comunal · Venecia, San Carlos, Costa Rica</span>
-            <span>Sin cuenta · Reserva en tres pasos · {textoTarifaActiva}</span>
+            <span>Cancha sintética · Venecia, San Carlos, Costa Rica</span>
+            <span>Reserva en tres pasos · {textoTarifaActiva}</span>
           </div>
         </div>
       </div>

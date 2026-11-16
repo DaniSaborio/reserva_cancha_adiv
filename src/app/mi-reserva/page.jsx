@@ -87,7 +87,7 @@ export default function MiReservaPage() {
             Autoservicio Comunal
           </span>
           <h1 className="text-lg sm:text-xl font-extrabold text-cancha-900">
-            Encontrá tu reserva (Sin iniciar sesión)
+            Encontrá tu reserva
           </h1>
         </div>
 

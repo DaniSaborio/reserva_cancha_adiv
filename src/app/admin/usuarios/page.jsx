@@ -99,7 +99,7 @@ export default function AdminUsuariosPage() {
   const abrirNuevoUsuario = () => {
     setEditandoId(null);
     setFormNombre('');
-    setFormCargo('Directiva ADI Venecia');
+    setFormCargo('Administración Cancha Venecia');
     setFormUsername('');
     setFormEmail('');
     setFormRol('Administrador');
@@ -113,7 +113,7 @@ export default function AdminUsuariosPage() {
   const abrirEditarUsuario = (u) => {
     setEditandoId(u.id);
     setFormNombre(u.nombre || '');
-    setFormCargo(u.cargo || 'Directiva ADI');
+    setFormCargo(u.cargo || 'Administración');
     setFormUsername(u.username || '');
     setFormEmail(u.email || '');
     setFormRol(u.rol || 'Administrador');
@@ -142,7 +142,7 @@ export default function AdminUsuariosPage() {
   };
 
   const generarClaveSegura = () => {
-    const sufijos = ['2026!', 'ADI#26', 'Venecia$9', 'Cancha!26'];
+    const sufijos = ['2026!', 'Venecia$9', 'Cancha!26'];
     const randomNum = Math.floor(100 + Math.random() * 900);
     const clave = `Venecia${randomNum}!`;
     setFormPassword(clave);
@@ -474,7 +474,7 @@ export default function AdminUsuariosPage() {
                     : 'Registrar nuevo usuario administrativo'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Definí sus credenciales, su rol en la ADI y los módulos a los que tendrá acceso.
+                  Definí sus credenciales, su rol y los módulos a los que tendrá acceso.
                 </p>
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function AdminUsuariosPage() {
 
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Cargo o función en la ADI *
+                  Cargo o función *
                 </label>
                 <input
                   type="text"
@@ -811,7 +811,7 @@ export default function AdminUsuariosPage() {
                     </span>
                     <span>
                       <strong className="text-slate-800">Cargo:</strong>{' '}
-                      {u.cargo || 'Directiva ADI'}
+                      {u.cargo || 'Administración'}
                     </span>
                     <span>
                       <strong className="text-slate-800">Clave:</strong>{' '}
@@ -929,7 +929,7 @@ export default function AdminUsuariosPage() {
             </h2>
           </div>
           <p className="text-xs text-slate-500">
-            Privilegios base asignados por rol según las políticas de control de acceso de la ADI Venecia.
+            Privilegios base asignados por rol según las políticas de control de acceso de la plataforma.
           </p>
 
           <div className="overflow-x-auto">

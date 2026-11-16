@@ -226,7 +226,7 @@ export default function ReservarPage() {
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-5">
         <div className="border-b border-slate-100 pb-3">
           <h1 className="text-lg sm:text-xl font-extrabold text-cancha-900">
-            ¿Quién viene a jugar? (Sin cuenta)
+            ¿Quién viene a jugar?
           </h1>
         </div>
 
@@ -241,7 +241,7 @@ export default function ReservarPage() {
               </p>
             </div>
             <span className="text-xs font-bold text-cancha-800 bg-emerald-100 px-2.5 py-1 rounded-full">
-              Cancha Sintética ADI
+              Cancha Sintética
             </span>
           </div>
 
@@ -473,7 +473,7 @@ export default function ReservarPage() {
             className="w-full py-3.5 px-5 rounded-xl bg-cancha-700 hover:bg-cancha-800 disabled:opacity-60 text-white font-extrabold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
           >
             {enviando ? (
-              <span>Confirmando con ADI Venecia...</span>
+              <span>Confirmando reserva...</span>
             ) : (
               <span>
                 Confirmar reserva · {tipoCobro === 'por_persona' ? 'Est. ' : ''}

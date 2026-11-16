@@ -108,8 +108,8 @@ export default function Header() {
             )}
             <span>
               {isAdminRoute
-                ? 'Panel Administrativo · ADI Venecia'
-                : 'Cancha Sintética Comunal · Venecia de San Carlos'}
+                ? 'Panel Administrativo · Cancha Venecia'
+                : 'Cancha Sintética · Venecia de San Carlos'}
             </span>
           </div>
 
@@ -158,7 +158,7 @@ export default function Header() {
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Asociación de Desarrollo de Venecia
+              Cancha Sintética · Venecia de San Carlos
             </p>
           </div>
         </Link>

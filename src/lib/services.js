@@ -1475,7 +1475,7 @@ export class AuthMiddleware {
       id: usuario.id,
       username: usuario.username,
       nombre: usuario.nombre,
-      cargo: usuario.cargo || 'Directiva ADI',
+      cargo: usuario.cargo || 'Administración',
       email: usuario.email,
       rol: usuario.rol,
       permisos,
@@ -1642,7 +1642,7 @@ export class UsuarioAdminService {
       .replace(/[^a-zA-Z0-9._-]/g, '')
       .toLowerCase();
     const nombre = sanitizeText(dto?.nombre, 80);
-    const cargo = sanitizeText(dto?.cargo || 'Directiva ADI', 80);
+    const cargo = sanitizeText(dto?.cargo || 'Administración', 80);
     const email = sanitizeText(dto?.email, 80).toLowerCase();
     const rol = dto?.rol === 'Tesorero' ? 'Tesorero' : 'Administrador';
     const password = String(dto?.password || '').trim();

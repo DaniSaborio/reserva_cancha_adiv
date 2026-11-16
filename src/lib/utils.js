@@ -68,10 +68,10 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
   const instrucciones =
     reserva.metodo_pago_previsto === 'Efectivo'
       ? `Pago presencial en caseta antes del partido (${formatColones(reserva.monto_total)}).`
-      : `SINPE Móvil: ${cancha?.sinpe_oficial || '8888-9999'} (ADI Venecia) indicando "${reserva.codigo_reserva}" en el detalle.`;
+      : `SINPE Móvil: ${cancha?.sinpe_oficial || '8888-9999'} (${cancha?.sinpe_titular || 'Cancha Venecia'}) indicando "${reserva.codigo_reserva}" en el detalle.`;
 
   const texto = [
-    `*CanchaApp — ADI Venecia*`,
+    `*CanchaApp — Venecia*`,
     `¡Horario reservado para jugar!`,
     ``,
     `*Código:* ${reserva.codigo_reserva}`,

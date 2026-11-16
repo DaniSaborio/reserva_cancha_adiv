@@ -259,7 +259,7 @@ export default function AdminDashboardPage() {
             Resumen de hoy
           </h1>
           <p className="text-xs sm:text-sm font-semibold text-slate-500">
-            Control financiero y operativo · Asociación de Desarrollo Integral de Venecia
+            Control financiero y operativo · Cancha Sintética Venecia
           </p>
         </div>
 

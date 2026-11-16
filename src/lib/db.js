@@ -64,7 +64,7 @@ export const CanchaDB = {
         // Asegurar permisos por defecto y cuenta sabo si viene de versión previa
         parsed.usuarios_admin = parsed.usuarios_admin.map((u) => ({
           ...u,
-          cargo: u.cargo || (u.rol === 'Tesorero' ? 'Fiscalía Deportiva' : 'Directiva ADI'),
+          cargo: u.cargo || (u.rol === 'Tesorero' ? 'Fiscalía Deportiva' : 'Administración'),
           permisos: Array.isArray(u.permisos)
             ? u.permisos
             : u.rol === 'Tesorero'

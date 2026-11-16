@@ -143,7 +143,7 @@ export async function onRequestPatch(context) {
     if (env && env.DB) {
       await ensureTarifasSchema(env.DB);
       await env.DB.prepare(
-        "INSERT OR IGNORE INTO canchas (id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores, estado) VALUES (1, 'Cancha Sintética Comunal — ADI Venecia', 16000, 16000, 'por_persona', 1500, 1500, 16, 'activa')"
+        "INSERT OR IGNORE INTO canchas (id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores, estado) VALUES (1, 'Cancha Sintética Comunal — Venecia', 16000, 16000, 'por_persona', 1500, 1500, 16, 'activa')"
       ).run();
 
       if (tipoCobro === 'por_persona') {
