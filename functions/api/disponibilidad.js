@@ -29,6 +29,7 @@ export async function onRequestGet(context) {
   let tipoCobro = 'por_persona';
   let precioDiurno = 1500;
   let precioNocturno = 1500;
+  let maxJugadores = 16;
 
   if (env && env.DB) {
     try {
@@ -46,13 +47,19 @@ export async function onRequestGet(context) {
         'ALTER TABLE canchas ADD COLUMN precio_persona_nocturna REAL NOT NULL DEFAULT 1500.0'
       ).run();
     } catch {}
+    try {
+      await env.DB.prepare(
+        'ALTER TABLE canchas ADD COLUMN max_jugadores INTEGER NOT NULL DEFAULT 16'
+      ).run();
+    } catch {}
 
     try {
       const canchaRow = await env.DB.prepare(
-        'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+        'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores FROM canchas WHERE id = 1 LIMIT 1'
       ).first();
       if (canchaRow) {
         tipoCobro = canchaRow.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+        maxJugadores = Number(canchaRow.max_jugadores) >= 2 ? Number(canchaRow.max_jugadores) : 16;
         if (tipoCobro === 'por_cancha') {
           precioDiurno = Number(canchaRow.tarifa_diurna) > 0 ? Number(canchaRow.tarifa_diurna) : 16000;
           precioNocturno =
@@ -74,6 +81,7 @@ export async function onRequestGet(context) {
   const franjasConPrecio = FRANJAS_OFICIALES.map((f) => ({
     ...f,
     tipo_cobro: tipoCobro,
+    max_jugadores: maxJugadores,
     precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? precioDiurno : precioNocturno
   }));
 

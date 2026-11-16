@@ -182,6 +182,7 @@ export default function HomePage() {
       ? 'por_cancha'
       : 'por_persona';
   const sufijoTarifa = tipoCobroHoy === 'por_persona' ? 'persona' : 'hora';
+  const maxJugadoresHoy = Number(franjasDia.find((f) => f.max_jugadores)?.max_jugadores) || 16;
   const precioDefault = tipoCobroHoy === 'por_persona' ? 1500 : 16000;
   const precioDiurnoHoy = franjasDia.find((f) => f.hora_inicio === '16:00')?.precio || precioDefault;
   const precioNocturnoHoy = franjasDia.find((f) => f.hora_inicio === '18:00')?.precio || precioDefault;
@@ -354,7 +355,7 @@ export default function HomePage() {
                   Horarios disponibles
                 </h2>
                 <p className="text-xs font-semibold text-slate-500">
-                  16:00–23:00 · {textoTarifaActiva}
+                  16:00–23:00 · {textoTarifaActiva} · Máx. {maxJugadoresHoy} jugadores
                 </p>
               </div>
 

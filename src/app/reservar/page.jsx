@@ -47,8 +47,15 @@ export default function ReservarPage() {
   useEffect(() => {
     const disp = ReservaService.verificarDisponibilidad(fecha);
     setFranjasDelDia(disp);
+    const maxLocal = Number(disp[0]?.max_jugadores) || 16;
+    setCantidadPersonas((prev) => (Number(prev) > maxLocal ? maxLocal : prev));
+
     ReservaService.verificarDisponibilidadAsync(fecha).then((remotas) => {
-      if (remotas && remotas.length) setFranjasDelDia(remotas);
+      if (remotas && remotas.length) {
+        setFranjasDelDia(remotas);
+        const maxRemoto = Number(remotas[0]?.max_jugadores) || 16;
+        setCantidadPersonas((prev) => (Number(prev) > maxRemoto ? maxRemoto : prev));
+      }
     });
   }, [fecha, horaInicio]);
 
@@ -57,9 +64,19 @@ export default function ReservarPage() {
   const franjaSeleccionada = franjasDelDia.find((f) => f.hora_inicio === horaInicio);
   const tipoCobro =
     franjaSeleccionada?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+  const maxJugadores =
+    Number(franjaSeleccionada?.max_jugadores || franjasDelDia[0]?.max_jugadores) >= 2
+      ? Number(franjaSeleccionada?.max_jugadores || franjasDelDia[0]?.max_jugadores)
+      : 16;
   const precioUnitario =
     Number(franjaSeleccionada?.precio) || (tipoCobro === 'por_persona' ? 1500 : 16000);
-  const personasValidas = Math.min(30, Math.max(1, Number(cantidadPersonas) || 1));
+  const personasValidas = Math.min(maxJugadores, Math.max(1, Number(cantidadPersonas) || 1));
+  const excedeLimite = Number(cantidadPersonas) > maxJugadores;
+  const opcionesRapidas = Array.from(
+    new Set([8, 10, 12, 14, 16, 20, maxJugadores].filter((n) => n >= 2 && n <= maxJugadores))
+  )
+    .sort((a, b) => a - b)
+    .slice(0, 5);
   const totalEstimado =
     tipoCobro === 'por_persona' ? precioUnitario * personasValidas : precioUnitario;
 
@@ -84,7 +101,7 @@ export default function ReservarPage() {
       fecha,
       hora_inicio: horaInicio,
       metodo_pago: metodoPago,
-      cantidad_personas: personasValidas
+      cantidad_personas: Number(cantidadPersonas)
     });
 
     setEnviando(false);
@@ -324,8 +341,8 @@ export default function ReservarPage() {
               </label>
               <span className="text-[11px] font-bold text-cancha-800 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
                 {tipoCobro === 'por_persona'
-                  ? `${formatColones(precioUnitario)} por persona`
-                  : `Tarifa fija ${formatColones(precioUnitario)}`}
+                  ? `${formatColones(precioUnitario)} / persona · Máx. ${maxJugadores} jug.`
+                  : `Tarifa fija ${formatColones(precioUnitario)} · Máx. ${maxJugadores} jug.`}
               </span>
             </div>
 
@@ -333,7 +350,11 @@ export default function ReservarPage() {
               <div className="inline-flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setCantidadPersonas((p) => Math.max(1, (Number(p) || 1) - 1))}
+                  onClick={() =>
+                    setCantidadPersonas((p) =>
+                      Math.max(1, Math.min(maxJugadores, (Number(p) || 1) - 1))
+                    )
+                  }
                   className="px-3 py-2.5 text-slate-600 hover:bg-slate-100 transition-colors"
                   aria-label="Restar una persona"
                 >
@@ -343,7 +364,7 @@ export default function ReservarPage() {
                   id="cantidad-personas"
                   type="number"
                   min={1}
-                  max={30}
+                  max={maxJugadores}
                   required
                   value={cantidadPersonas}
                   onChange={(e) => setCantidadPersonas(e.target.value)}
@@ -351,7 +372,11 @@ export default function ReservarPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setCantidadPersonas((p) => Math.min(30, (Number(p) || 1) + 1))}
+                  onClick={() =>
+                    setCantidadPersonas((p) =>
+                      Math.min(maxJugadores, Math.max(1, (Number(p) || 1) + 1))
+                    )
+                  }
                   className="px-3 py-2.5 text-slate-600 hover:bg-slate-100 transition-colors"
                   aria-label="Sumar una persona"
                 >
@@ -360,7 +385,7 @@ export default function ReservarPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
-                {[8, 10, 12, 14, 16].map((cant) => (
+                {opcionesRapidas.map((cant) => (
                   <button
                     key={cant}
                     type="button"
@@ -376,6 +401,12 @@ export default function ReservarPage() {
                 ))}
               </div>
             </div>
+
+            {excedeLimite && (
+              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">
+                El aforo máximo permitido por la cancha es de {maxJugadores} jugadores por turno.
+              </p>
+            )}
 
             {/* Suma estimada en tiempo real */}
             <div className="rounded-xl bg-white border border-emerald-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">

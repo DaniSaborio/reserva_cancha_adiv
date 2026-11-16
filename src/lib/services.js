@@ -36,6 +36,7 @@ export class ReservaService {
     const bloqueosFecha = db.bloqueos_horario.filter((b) => b.fecha === fechaSegura);
 
     const tipoCobro = db.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+    const maxJugadores = Number(db.cancha?.max_jugadores) >= 2 ? Number(db.cancha.max_jugadores) : 16;
     const tarifaGeneral = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
     const tarifaDiurna = Number(db.cancha?.tarifa_diurna) || tarifaGeneral;
     const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaGeneral;
@@ -57,6 +58,7 @@ export class ReservaService {
         return {
           ...franja,
           tipo_cobro: tipoCobro,
+          max_jugadores: maxJugadores,
           precio: precioActual,
           fecha: fechaSegura,
           estado: 'Mantenimiento',
@@ -72,6 +74,7 @@ export class ReservaService {
         return {
           ...franja,
           tipo_cobro: tipoCobro,
+          max_jugadores: maxJugadores,
           precio: precioActual,
           fecha: fechaSegura,
           estado: esConfirmada ? 'Ocupado' : 'En proceso',
@@ -83,6 +86,7 @@ export class ReservaService {
       return {
         ...franja,
         tipo_cobro: tipoCobro,
+        max_jugadores: maxJugadores,
         precio: precioActual,
         fecha: fechaSegura,
         estado: 'Libre',
@@ -104,8 +108,12 @@ export class ReservaService {
       const fDiurna = franjas.find((f) => f.hora_inicio === '16:00');
       const fNocturna = franjas.find((f) => f.hora_inicio === '18:00');
       const tipoRemoto = fDiurna?.tipo_cobro || fNocturna?.tipo_cobro;
+      const maxRemoto = Number(fDiurna?.max_jugadores || fNocturna?.max_jugadores);
       if (db.cancha && tipoRemoto) {
         db.cancha.tipo_cobro = tipoRemoto === 'por_cancha' ? 'por_cancha' : 'por_persona';
+      }
+      if (db.cancha && maxRemoto >= 2) {
+        db.cancha.max_jugadores = maxRemoto;
       }
       if (db.cancha) {
         const esPorCancha = db.cancha.tipo_cobro === 'por_cancha';
@@ -312,11 +320,14 @@ export class ReservaService {
       };
     }
 
-    if (personasNum < 1 || personasNum > 30) {
+    const dbMax = Number(CanchaDB.load().cancha?.max_jugadores);
+    const maxJugadores = dbMax >= 2 ? dbMax : 16;
+
+    if (personasNum < 1 || personasNum > maxJugadores) {
       return {
         ok: false,
         status: 400,
-        error: 'Indicá una cantidad válida de personas que asistirán (entre 1 y 30).'
+        error: `Indicá una cantidad válida de jugadores que asistirán (entre 1 y ${maxJugadores}).`
       };
     }
 
@@ -458,11 +469,14 @@ export class ReservaService {
       };
     }
 
-    if (personasNum < 1 || personasNum > 30) {
+    const dbMax = Number(CanchaDB.load().cancha?.max_jugadores);
+    const maxJugadores = dbMax >= 2 ? dbMax : 16;
+
+    if (personasNum < 1 || personasNum > maxJugadores) {
       return {
         ok: false,
         status: 400,
-        error: 'Indicá una cantidad válida de personas que asistirán (entre 1 y 30).'
+        error: `Indicá una cantidad válida de jugadores que asistirán (entre 1 y ${maxJugadores}).`
       };
     }
 
@@ -1912,6 +1926,7 @@ export class TarifaService {
     const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaHora;
     const personaDiurna = Number(db.cancha?.precio_persona_diurna) || 1500;
     const personaNocturna = Number(db.cancha?.precio_persona_nocturna) || 1500;
+    const maxJugadores = Number(db.cancha?.max_jugadores) >= 2 ? Number(db.cancha.max_jugadores) : 16;
 
     const activaDiurna = tipoCobro === 'por_persona' ? personaDiurna : tarifaDiurna;
     const activaNocturna = tipoCobro === 'por_persona' ? personaNocturna : tarifaNocturna;
@@ -1923,6 +1938,7 @@ export class TarifaService {
       tarifa_nocturna: activaNocturna,
       precio_persona_diurna: personaDiurna,
       precio_persona_nocturna: personaNocturna,
+      max_jugadores: maxJugadores,
       modo_diferenciado: activaDiurna !== activaNocturna
     };
   }
@@ -1940,6 +1956,7 @@ export class TarifaService {
             const tNocturna = Number(data.tarifa_nocturna) || 16000;
             const pDiurna = Number(data.precio_persona_diurna) || 1500;
             const pNocturna = Number(data.precio_persona_nocturna) || 1500;
+            const maxJugadores = Number(data.max_jugadores) >= 2 ? Number(data.max_jugadores) : 16;
 
             if (db.cancha) {
               db.cancha.tipo_cobro = tipoCobro;
@@ -1948,6 +1965,7 @@ export class TarifaService {
               db.cancha.tarifa_nocturna = tNocturna;
               db.cancha.precio_persona_diurna = pDiurna;
               db.cancha.precio_persona_nocturna = pNocturna;
+              db.cancha.max_jugadores = maxJugadores;
             }
             const activaDiurna = tipoCobro === 'por_persona' ? pDiurna : tDiurna;
             const activaNocturna = tipoCobro === 'por_persona' ? pNocturna : tNocturna;
@@ -1964,6 +1982,7 @@ export class TarifaService {
               tarifa_nocturna: activaNocturna,
               precio_persona_diurna: pDiurna,
               precio_persona_nocturna: pNocturna,
+              max_jugadores: maxJugadores,
               modo_diferenciado: activaDiurna !== activaNocturna
             };
           }
@@ -1981,6 +2000,7 @@ export class TarifaService {
     const baseHora = Number(dto.tarifa_hora);
     const rawDiurna = modoDiferenciado ? Number(dto.tarifa_diurna) : baseHora;
     const rawNocturna = modoDiferenciado ? Number(dto.tarifa_nocturna) : baseHora;
+    const rawMaxJug = dto.max_jugadores !== undefined ? Number(dto.max_jugadores) : 16;
 
     const minMonto = tipoCobro === 'por_persona' ? 300 : 1000;
     const maxMonto = 250000;
@@ -1999,12 +2019,20 @@ export class TarifaService {
       };
     }
 
+    if (!Number.isInteger(rawMaxJug) || rawMaxJug < 2 || rawMaxJug > 50) {
+      return {
+        ok: false,
+        error: 'El máximo de jugadores debe ser un número entero entre 2 y 50.'
+      };
+    }
+
     const valorDiurno = Math.round(rawDiurna);
     const valorNocturno = Math.round(rawNocturna);
 
     const db = CanchaDB.load();
     if (db.cancha) {
       db.cancha.tipo_cobro = tipoCobro;
+      db.cancha.max_jugadores = rawMaxJug;
       if (tipoCobro === 'por_persona') {
         db.cancha.precio_persona_diurna = valorDiurno;
         db.cancha.precio_persona_nocturna = valorNocturno;
@@ -2025,6 +2053,7 @@ export class TarifaService {
       username: adminInfo?.username || 'tesoreria',
       rol: adminInfo?.rol || 'Tesorero',
       tipo_cobro: tipoCobro,
+      max_jugadores: rawMaxJug,
       diurna: valorDiurno,
       nocturna: valorNocturno
     });
@@ -2036,6 +2065,7 @@ export class TarifaService {
         tarifa_hora: valorNocturno,
         tarifa_diurna: valorDiurno,
         tarifa_nocturna: valorNocturno,
+        max_jugadores: rawMaxJug,
         modo_diferenciado: valorDiurno !== valorNocturno
       }
     };

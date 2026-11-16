@@ -56,6 +56,7 @@ export const CanchaDB = {
         if (!parsed.cancha.tipo_cobro) parsed.cancha.tipo_cobro = 'por_persona';
         if (!Number(parsed.cancha.precio_persona_diurna)) parsed.cancha.precio_persona_diurna = 1500;
         if (!Number(parsed.cancha.precio_persona_nocturna)) parsed.cancha.precio_persona_nocturna = 1500;
+        if (!Number(parsed.cancha.max_jugadores)) parsed.cancha.max_jugadores = 16;
       }
       if (!Array.isArray(parsed.usuarios_admin) || parsed.usuarios_admin.length === 0) {
         parsed.usuarios_admin = cloneDeep(seedData.usuarios_admin);

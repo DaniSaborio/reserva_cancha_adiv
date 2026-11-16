@@ -42,6 +42,11 @@ async function ensureTarifasSchema(db) {
       .prepare('ALTER TABLE canchas ADD COLUMN precio_persona_nocturna REAL NOT NULL DEFAULT 1500.0')
       .run();
   } catch {}
+  try {
+    await db
+      .prepare('ALTER TABLE canchas ADD COLUMN max_jugadores INTEGER NOT NULL DEFAULT 16')
+      .run();
+  } catch {}
 }
 
 function formatTarifaPayload(row) {
@@ -52,6 +57,7 @@ function formatTarifaPayload(row) {
     Number(row?.precio_persona_diurna) > 0 ? Number(row.precio_persona_diurna) : 1500;
   const precioPersonaNocturna =
     Number(row?.precio_persona_nocturna) > 0 ? Number(row.precio_persona_nocturna) : 1500;
+  const maxJugadores = Number(row?.max_jugadores) >= 2 ? Number(row.max_jugadores) : 16;
 
   const activaDiurna = tipoCobro === 'por_persona' ? precioPersonaDiurna : tarifaDiurna;
   const activaNocturna = tipoCobro === 'por_persona' ? precioPersonaNocturna : tarifaNocturna;
@@ -63,6 +69,7 @@ function formatTarifaPayload(row) {
     tarifa_nocturna: tarifaNocturna,
     precio_persona_diurna: precioPersonaDiurna,
     precio_persona_nocturna: precioPersonaNocturna,
+    max_jugadores: maxJugadores,
     modo_diferenciado: activaDiurna !== activaNocturna
   };
 }
@@ -75,7 +82,7 @@ export async function onRequestGet(context) {
     try {
       await ensureTarifasSchema(env.DB);
       row = await env.DB.prepare(
-        'SELECT id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, estado FROM canchas WHERE id = 1 LIMIT 1'
+        'SELECT id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores, estado FROM canchas WHERE id = 1 LIMIT 1'
       ).first();
     } catch {}
   }
@@ -125,29 +132,36 @@ export async function onRequestPatch(context) {
 
     const valorDiurno = Math.round(rawDiurna);
     const valorNocturno = Math.round(rawNocturna);
+    const rawMaxJug = body.max_jugadores !== undefined ? Number(body.max_jugadores) : 16;
+    if (!Number.isInteger(rawMaxJug) || rawMaxJug < 2 || rawMaxJug > 50) {
+      return Response.json(
+        { error: 'El máximo de jugadores debe ser un entero entre 2 y 50.' },
+        { status: 400, headers: SEC_HEADERS }
+      );
+    }
 
     if (env && env.DB) {
       await ensureTarifasSchema(env.DB);
       await env.DB.prepare(
-        "INSERT OR IGNORE INTO canchas (id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, estado) VALUES (1, 'Cancha Sintética Comunal — ADI Venecia', 16000, 16000, 'por_persona', 1500, 1500, 'activa')"
+        "INSERT OR IGNORE INTO canchas (id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores, estado) VALUES (1, 'Cancha Sintética Comunal — ADI Venecia', 16000, 16000, 'por_persona', 1500, 1500, 16, 'activa')"
       ).run();
 
       if (tipoCobro === 'por_persona') {
         await env.DB.prepare(
-          'UPDATE canchas SET tipo_cobro = ?, precio_persona_diurna = ?, precio_persona_nocturna = ? WHERE id = 1'
+          'UPDATE canchas SET tipo_cobro = ?, precio_persona_diurna = ?, precio_persona_nocturna = ?, max_jugadores = ? WHERE id = 1'
         )
-          .bind(tipoCobro, valorDiurno, valorNocturno)
+          .bind(tipoCobro, valorDiurno, valorNocturno, rawMaxJug)
           .run();
       } else {
         await env.DB.prepare(
-          'UPDATE canchas SET tipo_cobro = ?, tarifa_diurna = ?, tarifa_nocturna = ? WHERE id = 1'
+          'UPDATE canchas SET tipo_cobro = ?, tarifa_diurna = ?, tarifa_nocturna = ?, max_jugadores = ? WHERE id = 1'
         )
-          .bind(tipoCobro, valorDiurno, valorNocturno)
+          .bind(tipoCobro, valorDiurno, valorNocturno, rawMaxJug)
           .run();
       }
 
       const updatedRow = await env.DB.prepare(
-        'SELECT id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, estado FROM canchas WHERE id = 1 LIMIT 1'
+        'SELECT id, nombre, tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores, estado FROM canchas WHERE id = 1 LIMIT 1'
       ).first();
 
       return Response.json(
@@ -169,6 +183,7 @@ export async function onRequestPatch(context) {
         tarifa_nocturna: tipoCobro === 'por_cancha' ? valorNocturno : 16000,
         precio_persona_diurna: tipoCobro === 'por_persona' ? valorDiurno : 1500,
         precio_persona_nocturna: tipoCobro === 'por_persona' ? valorNocturno : 1500,
+        max_jugadores: rawMaxJug,
         modo_diferenciado: valorDiurno !== valorNocturno,
         actualizado_por: claims.username || claims.rol
       },

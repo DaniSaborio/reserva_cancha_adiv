@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS canchas (
   tipo_cobro TEXT NOT NULL DEFAULT 'por_persona' CHECK(tipo_cobro IN ('por_persona', 'por_cancha')),
   precio_persona_diurna REAL NOT NULL DEFAULT 1500.00,
   precio_persona_nocturna REAL NOT NULL DEFAULT 1500.00,
+  max_jugadores INTEGER NOT NULL DEFAULT 16,
   estado TEXT NOT NULL DEFAULT 'activa' CHECK(estado IN ('activa', 'mantenimiento', 'inactiva')),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

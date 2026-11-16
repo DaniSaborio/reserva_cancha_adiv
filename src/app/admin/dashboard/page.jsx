@@ -47,6 +47,7 @@ export default function AdminDashboardPage() {
   const [tarifaHoraInput, setTarifaHoraInput] = useState(1500);
   const [tarifaDiurnaInput, setTarifaDiurnaInput] = useState(1500);
   const [tarifaNocturnaInput, setTarifaNocturnaInput] = useState(1500);
+  const [maxJugadoresInput, setMaxJugadoresInput] = useState(16);
   const [guardandoTarifa, setGuardandoTarifa] = useState(false);
 
   const recargarDatos = useCallback(() => {
@@ -57,6 +58,7 @@ export default function AdminDashboardPage() {
     setTarifaHoraInput(t.tarifa_hora);
     setTarifaDiurnaInput(t.tarifa_diurna);
     setTarifaNocturnaInput(t.tarifa_nocturna);
+    setMaxJugadoresInput(t.max_jugadores || 16);
     setModoDiferenciado(t.modo_diferenciado);
 
     const m = DashboardController.obtenerMetricasIngresos(fechaActiva);
@@ -74,6 +76,7 @@ export default function AdminDashboardPage() {
         setTarifaHoraInput(remota.tarifa_hora);
         setTarifaDiurnaInput(remota.tarifa_diurna);
         setTarifaNocturnaInput(remota.tarifa_nocturna);
+        setMaxJugadoresInput(remota.max_jugadores || 16);
         setModoDiferenciado(remota.modo_diferenciado);
       }
     });
@@ -157,7 +160,8 @@ export default function AdminDashboardPage() {
         modo_diferenciado: modoDiferenciado,
         tarifa_hora: Number(tarifaHoraInput),
         tarifa_diurna: modoDiferenciado ? Number(tarifaDiurnaInput) : Number(tarifaHoraInput),
-        tarifa_nocturna: modoDiferenciado ? Number(tarifaNocturnaInput) : Number(tarifaHoraInput)
+        tarifa_nocturna: modoDiferenciado ? Number(tarifaNocturnaInput) : Number(tarifaHoraInput),
+        max_jugadores: Number(maxJugadoresInput)
       },
       session?.token,
       session?.admin
@@ -175,7 +179,7 @@ export default function AdminDashboardPage() {
       : `${formatColones(res.tarifas.tarifa_hora)} por ${unidad} en todos los horarios`;
 
     setAvisoExito(
-      `Precio de la cancha actualizado correctamente (${textoNuevaTarifa}). Ya está activo en el calendario público.`
+      `Configuración actualizada: ${textoNuevaTarifa} · Máximo ${res.tarifas.max_jugadores} jugadores por turno.`
     );
     recargarDatos();
   };
@@ -380,7 +384,8 @@ export default function AdminDashboardPage() {
                   {modoDiferenciado
                     ? `Diurna ${formatColones(tarifaDiurnaInput)} · Nocturna ${formatColones(tarifaNocturnaInput)}`
                     : `${formatColones(tarifaHoraInput)} / ${tipoCobro === 'por_persona' ? 'persona' : 'hora'}`}
-                </strong>
+                </strong>{' '}
+                · Máx. <strong className="text-cancha-900">{maxJugadoresInput}</strong> jugadores
               </p>
             </div>
           </div>
@@ -560,16 +565,60 @@ export default function AdminDashboardPage() {
               </div>
             )}
 
+            {/* Límite máximo de jugadores permitidos por turno */}
+            <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200/80 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <div className="flex-1">
+                  <label
+                    htmlFor="input-max-jugadores"
+                    className="block text-xs font-extrabold text-slate-700 mb-1"
+                  >
+                    Máximo de jugadores permitidos por reserva (2 a 50)
+                  </label>
+                  <input
+                    id="input-max-jugadores"
+                    type="number"
+                    min={2}
+                    max={50}
+                    required
+                    value={maxJugadoresInput}
+                    onChange={(e) => setMaxJugadoresInput(e.target.value)}
+                    className="w-full sm:w-44 px-4 py-2 rounded-xl border border-slate-300 bg-white text-sm font-extrabold text-slate-900 focus:outline-none focus:border-cancha-700"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[10, 12, 14, 16, 20, 22].map((limite) => (
+                    <button
+                      key={limite}
+                      type="button"
+                      onClick={() => setMaxJugadoresInput(limite)}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                        Number(maxJugadoresInput) === limite
+                          ? 'bg-emerald-100 text-cancha-950 border-cancha-700'
+                          : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      Máx. {limite}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Los clientes no podrán seleccionar más de <strong>{maxJugadoresInput} jugadores</strong> al apartar un horario.
+              </p>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <p className="text-[11px] text-slate-500">
-                El nuevo precio se aplicará de inmediato en el calendario público, formulario de reserva y Cloudflare D1.
+                El nuevo precio y el límite de jugadores se aplicarán de inmediato en el calendario público, formulario de reserva y Cloudflare D1.
               </p>
               <button
                 type="submit"
                 disabled={guardandoTarifa}
                 className="px-5 py-2.5 rounded-xl bg-cancha-800 hover:bg-cancha-900 disabled:opacity-60 text-white font-extrabold text-xs sm:text-sm shadow-sm transition-colors"
               >
-                {guardandoTarifa ? 'Actualizando precio...' : 'Guardar nuevo precio'}
+                {guardandoTarifa ? 'Actualizando...' : 'Guardar tarifas y máximo'}
               </button>
             </div>
           </form>

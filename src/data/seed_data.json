@@ -9,6 +9,7 @@
     "tipo_cobro": "por_persona",
     "precio_persona_diurna": 1500,
     "precio_persona_nocturna": 1500,
+    "max_jugadores": 16,
     "sinpe_oficial": "8888-9999",
     "sinpe_titular": "Asociación de Desarrollo Integral de Venecia (ADI Venecia)",
     "telefono_encargado": "2472-8000",

@@ -112,19 +112,27 @@ async function handleApiRequest(req, res, urlObj) {
     );
 
     const tipoCobro = localD1.cancha?.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+    const maxJugadores = Number(localD1.cancha?.max_jugadores) >= 2 ? Number(localD1.cancha.max_jugadores) : 16;
     const resultado = localD1.franjas_oficiales.map((f) => {
       if (bloqueosMap.has(f.hora_inicio)) {
-        return { ...f, tipo_cobro: tipoCobro, estado: 'Mantenimiento', motivo: bloqueosMap.get(f.hora_inicio) };
+        return {
+          ...f,
+          tipo_cobro: tipoCobro,
+          max_jugadores: maxJugadores,
+          estado: 'Mantenimiento',
+          motivo: bloqueosMap.get(f.hora_inicio)
+        };
       }
       if (reservasMap.has(f.hora_inicio)) {
         const est = reservasMap.get(f.hora_inicio);
         return {
           ...f,
           tipo_cobro: tipoCobro,
+          max_jugadores: maxJugadores,
           estado: est === 'Confirmada' ? 'Ocupada' : 'En proceso'
         };
       }
-      return { ...f, tipo_cobro: tipoCobro, estado: 'Disponible' };
+      return { ...f, tipo_cobro: tipoCobro, max_jugadores: maxJugadores, estado: 'Disponible' };
     });
     return sendJson(res, 200, resultado);
   }
@@ -143,6 +151,8 @@ async function handleApiRequest(req, res, urlObj) {
         ? Number(cantidad_personas)
         : 10;
 
+      const maxJugadores = Number(localD1.cancha?.max_jugadores) >= 2 ? Number(localD1.cancha.max_jugadores) : 16;
+
       if (
         !nombreSanitizado ||
         nombreSanitizado.length < 2 ||
@@ -150,10 +160,13 @@ async function handleApiRequest(req, res, urlObj) {
         !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ||
         !HORAS_OFICIALES.includes(hora) ||
         personasNum < 1 ||
-        personasNum > 30
+        personasNum > maxJugadores
       ) {
         return sendJson(res, 400, {
-          error: 'Datos incompletos o con formato inválido para procesar la reserva.'
+          error:
+            personasNum > maxJugadores
+              ? `El máximo permitido por turno es de ${maxJugadores} jugadores.`
+              : 'Datos incompletos o con formato inválido para procesar la reserva.'
         });
       }
 
@@ -571,6 +584,7 @@ async function handleApiRequest(req, res, urlObj) {
     const tNocturna = Number(localD1.cancha?.tarifa_nocturna) || tHora;
     const pDiurna = Number(localD1.cancha?.precio_persona_diurna) || 1500;
     const pNocturna = Number(localD1.cancha?.precio_persona_nocturna) || 1500;
+    const maxJug = Number(localD1.cancha?.max_jugadores) >= 2 ? Number(localD1.cancha.max_jugadores) : 16;
 
     if (method === 'GET') {
       const actDiurna = tipoActual === 'por_persona' ? pDiurna : tDiurna;
@@ -582,6 +596,7 @@ async function handleApiRequest(req, res, urlObj) {
         tarifa_nocturna: tNocturna,
         precio_persona_diurna: pDiurna,
         precio_persona_nocturna: pNocturna,
+        max_jugadores: maxJug,
         modo_diferenciado: actDiurna !== actNocturna
       });
     }
@@ -594,6 +609,7 @@ async function handleApiRequest(req, res, urlObj) {
       const body = await readJsonBody(req);
       const nuevoTipo = body.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
       const modoDif = Boolean(body.modo_diferenciado);
+      const nuevoMax = Number(body.max_jugadores) >= 2 ? Math.min(50, Math.round(Number(body.max_jugadores))) : maxJug;
       const valDiurna = Math.round(
         modoDif
           ? Number(body.tarifa_diurna) || (nuevoTipo === 'por_persona' ? 1500 : 16000)
@@ -606,6 +622,7 @@ async function handleApiRequest(req, res, urlObj) {
       );
 
       localD1.cancha.tipo_cobro = nuevoTipo;
+      localD1.cancha.max_jugadores = nuevoMax;
       if (nuevoTipo === 'por_persona') {
         localD1.cancha.precio_persona_diurna = valDiurna;
         localD1.cancha.precio_persona_nocturna = valNocturna;
@@ -626,6 +643,7 @@ async function handleApiRequest(req, res, urlObj) {
         tarifa_nocturna: localD1.cancha.tarifa_nocturna || 16000,
         precio_persona_diurna: localD1.cancha.precio_persona_diurna || 1500,
         precio_persona_nocturna: localD1.cancha.precio_persona_nocturna || 1500,
+        max_jugadores: nuevoMax,
         modo_diferenciado: valDiurna !== valNocturna
       });
     }

@@ -42,7 +42,7 @@ export async function onRequestPost(context) {
       !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) ||
       !HORAS_OFICIALES.includes(hora) ||
       personasNum < 1 ||
-      personasNum > 30
+      personasNum > 50
     ) {
       return Response.json(
         { error: 'Datos incompletos o con formato inválido para procesar la reserva.' },
@@ -55,9 +55,10 @@ export async function onRequestPost(context) {
     const codigo = `CAN-2026-${secureCodeSuffix()}`;
     const telFormateado = `${telDigitos.slice(0, 4)}-${telDigitos.slice(4, 8)}`;
     const metodoSeguro = metodo === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil';
-    // A08:2025 - La tarifa se obtiene desde la tabla canchas en Cloudflare D1 (por persona o por cancha)
+    // A08:2025 - La tarifa y el aforo máximo se obtienen desde Cloudflare D1
     let tipoCobro = 'por_persona';
     let precioUnitario = 1500.0;
+    let maxJugadores = 16;
     let montoTotal = precioUnitario * personasNum;
 
     if (env && env.DB) {
@@ -69,10 +70,11 @@ export async function onRequestPost(context) {
 
       try {
         const canchaRow = await env.DB.prepare(
-          'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+          'SELECT tarifa_diurna, tarifa_nocturna, tipo_cobro, precio_persona_diurna, precio_persona_nocturna, max_jugadores FROM canchas WHERE id = 1 LIMIT 1'
         ).first();
         if (canchaRow) {
           tipoCobro = canchaRow.tipo_cobro === 'por_cancha' ? 'por_cancha' : 'por_persona';
+          maxJugadores = Number(canchaRow.max_jugadores) >= 2 ? Number(canchaRow.max_jugadores) : 16;
           const esDiurna = hora === '16:00' || hora === '17:00';
           if (tipoCobro === 'por_cancha') {
             precioUnitario = esDiurna
@@ -87,6 +89,15 @@ export async function onRequestPost(context) {
           }
         }
       } catch {}
+
+      if (personasNum > maxJugadores) {
+        return Response.json(
+          {
+            error: `El máximo permitido por turno es de ${maxJugadores} jugadores.`
+          },
+          { status: 400, headers: SEC_HEADERS }
+        );
+      }
 
       // A06:2025 - Verificar que el horario no esté bloqueado por mantenimiento antes de insertar
       const bloqueo = await env.DB.prepare(
