@@ -50,10 +50,25 @@ export async function onRequestPost(context) {
     const codigo = `CAN-2026-${secureCodeSuffix()}`;
     const telFormateado = `${telDigitos.slice(0, 4)}-${telDigitos.slice(4, 8)}`;
     const metodoSeguro = metodo === 'Efectivo' ? 'Efectivo' : 'SINPE Móvil';
-    // A08:2025 - La tarifa jamás se toma del cliente; se fija desde configuración oficial
-    const montoTotal = Number(env?.TARIFA_POR_HORA) || 16000.0;
+    // A08:2025 - La tarifa se obtiene desde la tabla canchas en Cloudflare D1 (configurada por Tesorería/Admin)
+    let montoTotal = Number(env?.TARIFA_POR_HORA) || 16000.0;
 
     if (env && env.DB) {
+      try {
+        const canchaRow = await env.DB.prepare(
+          'SELECT tarifa_diurna, tarifa_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+        ).first();
+        if (canchaRow) {
+          const esDiurna = hora === '16:00' || hora === '17:00';
+          const precioCancha = esDiurna
+            ? Number(canchaRow.tarifa_diurna)
+            : Number(canchaRow.tarifa_nocturna);
+          if (precioCancha > 0) {
+            montoTotal = precioCancha;
+          }
+        }
+      } catch {}
+
       // A06:2025 - Verificar que el horario no esté bloqueado por mantenimiento antes de insertar
       const bloqueo = await env.DB.prepare(
         'SELECT motivo FROM bloqueos_horario WHERE fecha = ? AND hora_inicio = ? LIMIT 1'

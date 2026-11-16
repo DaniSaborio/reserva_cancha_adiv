@@ -177,6 +177,12 @@ export default function HomePage() {
     : `${lunesSemana.getDate()} ${MESES_TITULO[lunesSemana.getMonth()].slice(0, 3)} – ${domingoSemana.getDate()} ${MESES_TITULO[domingoSemana.getMonth()].slice(0, 3)} ${domingoSemana.getFullYear()}`;
 
   const horasLibresHoy = franjasDia.filter((f) => f.disponible).length;
+  const precioDiurnoHoy = franjasDia.find((f) => f.hora_inicio === '16:00')?.precio || 16000;
+  const precioNocturnoHoy = franjasDia.find((f) => f.hora_inicio === '18:00')?.precio || 16000;
+  const textoTarifaActiva =
+    precioDiurnoHoy !== precioNocturnoHoy
+      ? `Diurna ${formatColones(precioDiurnoHoy)} · Nocturna ${formatColones(precioNocturnoHoy)} por hora`
+      : `${formatColones(precioNocturnoHoy)} por hora`;
 
   return (
     <div className="space-y-6">
@@ -342,7 +348,7 @@ export default function HomePage() {
                   Horarios disponibles
                 </h2>
                 <p className="text-xs font-semibold text-slate-500">
-                  16:00–23:00 · ₡16 000 por hora
+                  16:00–23:00 · {textoTarifaActiva}
                 </p>
               </div>
 
@@ -759,7 +765,7 @@ export default function HomePage() {
 
           <div className="pt-1 text-[11px] font-semibold text-slate-400 flex flex-wrap items-center justify-between gap-2">
             <span>Cancha comunal · Venecia, San Carlos, Costa Rica</span>
-            <span>Sin cuenta · Reserva en tres pasos · ₡16 000 / hora</span>
+            <span>Sin cuenta · Reserva en tres pasos · {textoTarifaActiva}</span>
           </div>
         </div>
       </div>

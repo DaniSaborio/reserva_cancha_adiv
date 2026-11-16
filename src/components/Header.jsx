@@ -19,14 +19,34 @@ export default function Header() {
   const [isOnline, setIsOnline] = useState(true);
   const [fontLarge, setFontLarge] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [tarifaLabel, setTarifaLabel] = useState('₡16 000 / hora');
 
   useEffect(() => {
+    const actualizarEtiquetaTarifa = () => {
+      try {
+        const db = CanchaDB.load();
+        const tHora = Number(db.cancha?.tarifa_hora) || 16000;
+        const tDiurna = Number(db.cancha?.tarifa_diurna) || tHora;
+        const tNocturna = Number(db.cancha?.tarifa_nocturna) || tHora;
+        if (tDiurna !== tNocturna) {
+          setTarifaLabel(
+            `₡${tDiurna.toLocaleString('es-CR')}–₡${tNocturna.toLocaleString('es-CR')} / h`
+          );
+        } else {
+          setTarifaLabel(`₡${tNocturna.toLocaleString('es-CR')} / hora`);
+        }
+      } catch {}
+    };
+
+    actualizarEtiquetaTarifa();
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('cancha-db-updated', actualizarEtiquetaTarifa);
+    window.addEventListener('storage', actualizarEtiquetaTarifa);
 
     const prefs = CanchaDB.getPreferences();
     if (prefs.fontLarge) {
@@ -46,6 +66,8 @@ export default function Header() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('cancha-db-updated', actualizarEtiquetaTarifa);
+      window.removeEventListener('storage', actualizarEtiquetaTarifa);
     };
   }, []);
 
@@ -124,7 +146,7 @@ export default function Header() {
                 CanchaApp
               </span>
               <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-cancha-800 border border-emerald-200">
-                ₡16 000 / hora
+                {tarifaLabel}
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">

@@ -540,6 +540,50 @@ async function handleApiRequest(req, res, urlObj) {
     }
   }
 
+  // 11. GET / PATCH /api/admin/tarifas
+  if (pathname === '/api/admin/tarifas') {
+    if (method === 'GET') {
+      const tHora = Number(localD1.cancha?.tarifa_hora) || 16000;
+      const tDiurna = Number(localD1.cancha?.tarifa_diurna) || tHora;
+      const tNocturna = Number(localD1.cancha?.tarifa_nocturna) || tHora;
+      return sendJson(res, 200, {
+        tarifa_hora: tNocturna,
+        tarifa_diurna: tDiurna,
+        tarifa_nocturna: tNocturna,
+        modo_diferenciado: tDiurna !== tNocturna
+      });
+    }
+
+    if (method === 'PATCH') {
+      const claims = verifyBearerJwt(req.headers['authorization'] || '');
+      if (!claims || !['Administrador', 'Tesorero'].includes(claims.rol)) {
+        return sendJson(res, 403, { error: 'No autorizado' });
+      }
+      const body = await readJsonBody(req);
+      const modoDif = Boolean(body.modo_diferenciado);
+      const tDiurna = Math.round(
+        modoDif ? Number(body.tarifa_diurna) || 16000 : Number(body.tarifa_hora) || 16000
+      );
+      const tNocturna = Math.round(
+        modoDif ? Number(body.tarifa_nocturna) || 16000 : Number(body.tarifa_hora) || 16000
+      );
+      localD1.cancha.tarifa_hora = tNocturna;
+      localD1.cancha.tarifa_diurna = tDiurna;
+      localD1.cancha.tarifa_nocturna = tNocturna;
+      localD1.franjas_oficiales = (localD1.franjas_oficiales || []).map((f) => ({
+        ...f,
+        precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tDiurna : tNocturna
+      }));
+      return sendJson(res, 200, {
+        ok: true,
+        tarifa_hora: tNocturna,
+        tarifa_diurna: tDiurna,
+        tarifa_nocturna: tNocturna,
+        modo_diferenciado: tDiurna !== tNocturna
+      });
+    }
+  }
+
   return sendJson(res, 404, { error: 'Endpoint API no encontrado' });
 }
 

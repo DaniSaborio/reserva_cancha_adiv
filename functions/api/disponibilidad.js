@@ -26,6 +26,25 @@ export async function onRequestGet(context) {
   const desde = url.searchParams.get('desde');
   const hasta = url.searchParams.get('hasta');
 
+  let tarifaDiurna = 16000;
+  let tarifaNocturna = 16000;
+  if (env && env.DB) {
+    try {
+      const canchaRow = await env.DB.prepare(
+        'SELECT tarifa_diurna, tarifa_nocturna FROM canchas WHERE id = 1 LIMIT 1'
+      ).first();
+      if (canchaRow) {
+        if (Number(canchaRow.tarifa_diurna) > 0) tarifaDiurna = Number(canchaRow.tarifa_diurna);
+        if (Number(canchaRow.tarifa_nocturna) > 0) tarifaNocturna = Number(canchaRow.tarifa_nocturna);
+      }
+    } catch {}
+  }
+
+  const franjasConPrecio = FRANJAS_OFICIALES.map((f) => ({
+    ...f,
+    precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tarifaDiurna : tarifaNocturna
+  }));
+
   // Soporte para consulta de rango de fechas (Vista Semanal / Mensual)
   if (desde && hasta && /^\d{4}-\d{2}-\d{2}$/.test(desde) && /^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
     if (env && env.DB) {
@@ -44,7 +63,9 @@ export async function onRequestGet(context) {
       return Response.json(
         {
           reservas: reservasRes.results || [],
-          bloqueos: bloqueosRes.results || []
+          bloqueos: bloqueosRes.results || [],
+          tarifa_diurna: tarifaDiurna,
+          tarifa_nocturna: tarifaNocturna
         },
         { status: 200, headers: SEC_HEADERS }
       );
@@ -78,7 +99,7 @@ export async function onRequestGet(context) {
       (bloqueosRes.results || []).map((b) => [b.hora_inicio, b.motivo])
     );
 
-    const resultado = FRANJAS_OFICIALES.map((f) => {
+    const resultado = franjasConPrecio.map((f) => {
       if (bloqueosMap.has(f.hora_inicio)) {
         return { ...f, estado: 'Mantenimiento', motivo: bloqueosMap.get(f.hora_inicio) };
       }
@@ -96,7 +117,7 @@ export async function onRequestGet(context) {
   }
 
   return Response.json(
-    FRANJAS_OFICIALES.map((f) => ({ ...f, estado: 'Disponible' })),
+    franjasConPrecio.map((f) => ({ ...f, estado: 'Disponible' })),
     { status: 200, headers: SEC_HEADERS }
   );
 }

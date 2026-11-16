@@ -35,11 +35,18 @@ export class ReservaService {
     );
     const bloqueosFecha = db.bloqueos_horario.filter((b) => b.fecha === fechaSegura);
 
+    const tarifaGeneral = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
+    const tarifaDiurna = Number(db.cancha?.tarifa_diurna) || tarifaGeneral;
+    const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaGeneral;
+
     return db.franjas_oficiales.map((franja) => {
+      const esDiurna = franja.hora_inicio === '16:00' || franja.hora_inicio === '17:00';
+      const precioActual = esDiurna ? tarifaDiurna : tarifaNocturna;
       const bloqueo = bloqueosFecha.find((b) => b.hora_inicio === franja.hora_inicio);
       if (bloqueo) {
         return {
           ...franja,
+          precio: precioActual,
           fecha: fechaSegura,
           estado: 'Mantenimiento',
           disponible: false,
@@ -53,6 +60,7 @@ export class ReservaService {
         const esConfirmada = reserva.estado === 'Confirmada';
         return {
           ...franja,
+          precio: precioActual,
           fecha: fechaSegura,
           estado: esConfirmada ? 'Ocupado' : 'En proceso',
           disponible: false,
@@ -62,6 +70,7 @@ export class ReservaService {
 
       return {
         ...franja,
+        precio: precioActual,
         fecha: fechaSegura,
         estado: 'Libre',
         disponible: true
@@ -78,6 +87,22 @@ export class ReservaService {
     if (!Array.isArray(franjas) || !isValidFechaISO(fecha)) return;
     try {
       const db = CanchaDB.load();
+      // Sincronizar precios si cambiaron en el servidor D1
+      const fDiurna = franjas.find((f) => f.hora_inicio === '16:00');
+      const fNocturna = franjas.find((f) => f.hora_inicio === '18:00');
+      if (fDiurna && Number(fDiurna.precio) > 0 && db.cancha) {
+        db.cancha.tarifa_diurna = Number(fDiurna.precio);
+      }
+      if (fNocturna && Number(fNocturna.precio) > 0 && db.cancha) {
+        db.cancha.tarifa_nocturna = Number(fNocturna.precio);
+        db.cancha.tarifa_hora = Number(fNocturna.precio);
+      }
+      db.franjas_oficiales = (db.franjas_oficiales || []).map((fo) => {
+        const remota = franjas.find((r) => r.hora_inicio === fo.hora_inicio);
+        return remota && Number(remota.precio) > 0
+          ? { ...fo, precio: Number(remota.precio) }
+          : fo;
+      });
       for (const f of franjas) {
         if (f.estado === 'Ocupada' || f.estado === 'Ocupado' || f.estado === 'En proceso') {
           const existe = db.reservas.find(
@@ -323,8 +348,12 @@ export class ReservaService {
       codigo_reserva = `CAN-2026-${String(secureRandomInt(10, 99))}`;
     }
 
-    // A08:2025 - Integridad de datos: el monto siempre proviene de la tarifa oficial del servidor/DB
-    const tarifaSegura = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
+    // A08:2025 - Integridad de datos: el monto proviene de la tarifa oficial configurada por Tesorería/Admin
+    const esDiurna = hora_inicio === '16:00' || hora_inicio === '17:00';
+    const tarifaBase = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
+    const tarifaSegura = esDiurna
+      ? Number(db.cancha?.tarifa_diurna) || tarifaBase
+      : Number(db.cancha?.tarifa_nocturna) || tarifaBase;
 
     const nuevaReserva = {
       id: Date.now() * 100 + secureRandomInt(10, 99),
@@ -1805,5 +1834,135 @@ export class UsuarioAdminService {
 
   static obtenerBitacoraSeguridad(limit = 12) {
     return SecurityAuditLogger.getRecentLogs(limit);
+  }
+}
+
+/**
+ * «Service» TarifaService
+ * Permite al Tesorero y al Administrador consultar y actualizar los precios por hora de la cancha
+ */
+export class TarifaService {
+  static obtenerTarifas() {
+    const db = CanchaDB.load();
+    const tarifaHora = Number(db.cancha?.tarifa_hora) || TARIFA_OFICIAL_CRC;
+    const tarifaDiurna = Number(db.cancha?.tarifa_diurna) || tarifaHora;
+    const tarifaNocturna = Number(db.cancha?.tarifa_nocturna) || tarifaHora;
+    return {
+      tarifa_hora: tarifaNocturna,
+      tarifa_diurna: tarifaDiurna,
+      tarifa_nocturna: tarifaNocturna,
+      modo_diferenciado: tarifaDiurna !== tarifaNocturna
+    };
+  }
+
+  static async obtenerTarifasAsync() {
+    if (typeof window !== 'undefined') {
+      try {
+        const resp = await fetch('/api/admin/tarifas');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && Number(data.tarifa_nocturna) > 0) {
+            const db = CanchaDB.load();
+            const tDiurna = Number(data.tarifa_diurna) || Number(data.tarifa_nocturna);
+            const tNocturna = Number(data.tarifa_nocturna);
+            if (db.cancha) {
+              db.cancha.tarifa_hora = tNocturna;
+              db.cancha.tarifa_diurna = tDiurna;
+              db.cancha.tarifa_nocturna = tNocturna;
+            }
+            db.franjas_oficiales = (db.franjas_oficiales || []).map((f) => ({
+              ...f,
+              precio: f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tDiurna : tNocturna
+            }));
+            CanchaDB.save(db);
+            return {
+              tarifa_hora: tNocturna,
+              tarifa_diurna: tDiurna,
+              tarifa_nocturna: tNocturna,
+              modo_diferenciado: tDiurna !== tNocturna
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Usando tarifas locales de CanchaDB:', e);
+      }
+    }
+    return this.obtenerTarifas();
+  }
+
+  static actualizarTarifas(dto = {}, adminInfo = null) {
+    const modoDiferenciado = Boolean(dto.modo_diferenciado);
+    const baseHora = Number(dto.tarifa_hora);
+    const rawDiurna = modoDiferenciado ? Number(dto.tarifa_diurna) : baseHora;
+    const rawNocturna = modoDiferenciado ? Number(dto.tarifa_nocturna) : baseHora;
+
+    if (
+      !Number.isFinite(rawDiurna) ||
+      !Number.isFinite(rawNocturna) ||
+      rawDiurna < 1000 ||
+      rawDiurna > 250000 ||
+      rawNocturna < 1000 ||
+      rawNocturna > 250000
+    ) {
+      return {
+        ok: false,
+        error: 'Ingresá un precio válido entre ₡1 000 y ₡250 000 por hora.'
+      };
+    }
+
+    const tarifaDiurna = Math.round(rawDiurna);
+    const tarifaNocturna = Math.round(rawNocturna);
+
+    const db = CanchaDB.load();
+    if (db.cancha) {
+      db.cancha.tarifa_hora = tarifaNocturna;
+      db.cancha.tarifa_diurna = tarifaDiurna;
+      db.cancha.tarifa_nocturna = tarifaNocturna;
+    }
+    db.franjas_oficiales = (db.franjas_oficiales || []).map((f) => ({
+      ...f,
+      precio:
+        f.hora_inicio === '16:00' || f.hora_inicio === '17:00' ? tarifaDiurna : tarifaNocturna
+    }));
+    CanchaDB.save(db);
+
+    SecurityAuditLogger.log('TARIFA_ACTUALIZADA', 'INFO', {
+      username: adminInfo?.username || 'tesoreria',
+      rol: adminInfo?.rol || 'Tesorero',
+      diurna: tarifaDiurna,
+      nocturna: tarifaNocturna
+    });
+
+    return {
+      ok: true,
+      tarifas: {
+        tarifa_hora: tarifaNocturna,
+        tarifa_diurna: tarifaDiurna,
+        tarifa_nocturna: tarifaNocturna,
+        modo_diferenciado: tarifaDiurna !== tarifaNocturna
+      }
+    };
+  }
+
+  static async actualizarTarifasAsync(dto = {}, token = null, adminInfo = null) {
+    const localRes = this.actualizarTarifas(dto, adminInfo);
+    if (!localRes.ok) return localRes;
+
+    if (typeof window !== 'undefined' && token) {
+      try {
+        await fetch('/api/admin/tarifas', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(dto)
+        });
+      } catch (e) {
+        console.warn('Actualización local de tarifas (sin conexión D1):', e);
+      }
+    }
+
+    return localRes;
   }
 }

@@ -49,6 +49,8 @@ export default function ReservarPage() {
 
   const horaNum = parseInt(horaInicio.split(':')[0], 10) || 16;
   const horaFin = `${String(horaNum + 1).padStart(2, '0')}:00`;
+  const franjaSeleccionada = franjasDelDia.find((f) => f.hora_inicio === horaInicio);
+  const precioSeleccionado = Number(franjaSeleccionada?.precio) || 16000;
 
   const handleTelefonoChange = (e) => {
     const digits = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
@@ -205,7 +207,7 @@ export default function ReservarPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500">Turno seleccionado:</p>
               <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 capitalize">
-                {formatFechaCorta(fecha)} · {horaInicio}-{horaFin} · {formatColones(16000)}
+                {formatFechaCorta(fecha)} · {horaInicio}-{horaFin} · {formatColones(precioSeleccionado)}
               </p>
             </div>
             <span className="text-xs font-bold text-cancha-800 bg-emerald-100 px-2.5 py-1 rounded-full">
@@ -242,7 +244,8 @@ export default function ReservarPage() {
               >
                 {franjasDelDia.map((f) => (
                   <option key={f.hora_inicio} value={f.hora_inicio}>
-                    {f.label} — {f.disponible ? 'Libre (₡16 000)' : f.estado}
+                    {f.label || `${f.hora_inicio}–${f.hora_fin}`} —{' '}
+                    {f.disponible ? `Libre (${formatColones(f.precio || precioSeleccionado)})` : f.estado}
                   </option>
                 ))}
               </select>
@@ -337,7 +340,7 @@ export default function ReservarPage() {
             {enviando ? (
               <span>Confirmando con ADI Venecia...</span>
             ) : (
-              <span>Confirmar reserva {formatColones(16000)}</span>
+              <span>Confirmar reserva {formatColones(precioSeleccionado)}</span>
             )}
           </button>
         </form>

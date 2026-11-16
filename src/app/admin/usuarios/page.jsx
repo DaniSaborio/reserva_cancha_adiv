@@ -962,6 +962,13 @@ export default function AdminUsuariosPage() {
                 </tr>
                 <tr>
                   <td className="py-2 pr-2 font-semibold">
+                    Cambiar precios y tarifas de la cancha
+                  </td>
+                  <td className="py-2 px-2 text-center text-emerald-700 font-bold">✓ Completo</td>
+                  <td className="py-2 pl-2 text-center text-emerald-700 font-bold">✓ Completo</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-2 font-semibold">
                     Exportar cierres contables CSV
                   </td>
                   <td className="py-2 px-2 text-center text-emerald-700 font-bold">✓ Completo</td>

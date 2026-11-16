@@ -7,6 +7,7 @@ import {
   DashboardController,
   PagoService,
   ReservaService,
+  TarifaService,
   AuthMiddleware
 } from '@/lib/services';
 import { formatColones, formatDDMMYYYY, formatFechaCorta, getFechaHoyISO } from '@/lib/utils';
@@ -20,7 +21,8 @@ import {
   FaMoneyBillWave,
   FaBan,
   FaCircleCheck,
-  FaUserShield
+  FaUserShield,
+  FaTags
 } from 'react-icons/fa6';
 
 export default function AdminDashboardPage() {
@@ -38,9 +40,23 @@ export default function AdminDashboardPage() {
   const [avisoExito, setAvisoExito] = useState('');
   const [avisoError, setAvisoError] = useState('');
 
+  // Control de precios de la cancha (habilitado para Tesorero y Administrador)
+  const [mostrarPanelTarifa, setMostrarPanelTarifa] = useState(true);
+  const [modoDiferenciado, setModoDiferenciado] = useState(false);
+  const [tarifaHoraInput, setTarifaHoraInput] = useState(16000);
+  const [tarifaDiurnaInput, setTarifaDiurnaInput] = useState(16000);
+  const [tarifaNocturnaInput, setTarifaNocturnaInput] = useState(16000);
+  const [guardandoTarifa, setGuardandoTarifa] = useState(false);
+
   const recargarDatos = useCallback(() => {
     const ses = AuthMiddleware.verificarToken();
     setSession(ses);
+    const t = TarifaService.obtenerTarifas();
+    setTarifaHoraInput(t.tarifa_hora);
+    setTarifaDiurnaInput(t.tarifa_diurna);
+    setTarifaNocturnaInput(t.tarifa_nocturna);
+    setModoDiferenciado(t.modo_diferenciado);
+
     const m = DashboardController.obtenerMetricasIngresos(fechaActiva);
     setMetricas(m);
 
@@ -49,6 +65,15 @@ export default function AdminDashboardPage() {
       : { fecha: fechaActiva };
     const lista = DashboardController.listarReservasRecientes(filtro);
     setReservasDia(lista);
+
+    TarifaService.obtenerTarifasAsync().then((remota) => {
+      if (remota) {
+        setTarifaHoraInput(remota.tarifa_hora);
+        setTarifaDiurnaInput(remota.tarifa_diurna);
+        setTarifaNocturnaInput(remota.tarifa_nocturna);
+        setModoDiferenciado(remota.modo_diferenciado);
+      }
+    });
 
     if (ses && ses.token) {
       DashboardController.sincronizarDashboardAsync(ses.token).then((data) => {
@@ -114,6 +139,39 @@ export default function AdminDashboardPage() {
       `Reserva ${reserva.codigo_reserva} cancelada. El horario ${reserva.hora_inicio}–${reserva.hora_fin} quedó libre en el calendario público.`
     );
     setReservaAbiertaId(null);
+    recargarDatos();
+  };
+
+  const handleGuardarTarifa = async (e) => {
+    e.preventDefault();
+    setAvisoError('');
+    setAvisoExito('');
+    setGuardandoTarifa(true);
+
+    const res = await TarifaService.actualizarTarifasAsync(
+      {
+        modo_diferenciado: modoDiferenciado,
+        tarifa_hora: Number(tarifaHoraInput),
+        tarifa_diurna: modoDiferenciado ? Number(tarifaDiurnaInput) : Number(tarifaHoraInput),
+        tarifa_nocturna: modoDiferenciado ? Number(tarifaNocturnaInput) : Number(tarifaHoraInput)
+      },
+      session?.token,
+      session?.admin
+    );
+    setGuardandoTarifa(false);
+
+    if (!res.ok) {
+      setAvisoError(res.error || 'No se pudo actualizar el precio de la cancha.');
+      return;
+    }
+
+    const textoNuevaTarifa = res.tarifas.modo_diferenciado
+      ? `Diurna (16:00–18:00): ${formatColones(res.tarifas.tarifa_diurna)} / h · Nocturna (18:00–23:00): ${formatColones(res.tarifas.tarifa_nocturna)} / h`
+      : `${formatColones(res.tarifas.tarifa_hora)} por hora en todos los horarios`;
+
+    setAvisoExito(
+      `Precio de la cancha actualizado correctamente (${textoNuevaTarifa}). Ya está activo en el calendario público.`
+    );
     recargarDatos();
   };
 
@@ -278,6 +336,182 @@ export default function AdminDashboardPage() {
             Recibido excluye pendientes y reversos.
           </p>
         </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* PANEL DE CONTROL DE PRECIOS DE LA CANCHA (TESORERO / ADMINISTRADOR) */}
+      {/* =================================================================== */}
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-emerald-200/90 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-cancha-900 flex items-center justify-center shrink-0">
+              <FaTags className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                  Precios y Tarifas de la Cancha
+                </h2>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+                  Habilitado para Tesorería y Admin
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Tarifa vigente:{' '}
+                <strong className="text-cancha-900">
+                  {modoDiferenciado
+                    ? `Diurna ${formatColones(tarifaDiurnaInput)} · Nocturna ${formatColones(tarifaNocturnaInput)}`
+                    : `${formatColones(tarifaHoraInput)} / hora`}
+                </strong>
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMostrarPanelTarifa(!mostrarPanelTarifa)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-50 hover:bg-slate-100 text-cancha-800 border border-slate-200"
+          >
+            <span>{mostrarPanelTarifa ? 'Ocultar ajuste' : 'Cambiar precios'}</span>
+            {mostrarPanelTarifa ? (
+              <FaChevronUp className="w-3 h-3" />
+            ) : (
+              <FaChevronDown className="w-3 h-3" />
+            )}
+          </button>
+        </div>
+
+        {mostrarPanelTarifa && (
+          <form onSubmit={handleGuardarTarifa} className="pt-3 border-t border-slate-100 space-y-4">
+            {/* Selector de modo: tarifa única vs tarifa diferenciada diurna/nocturna */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+              <span className="text-xs font-bold text-slate-700">
+                Modalidad de cobro por hora:
+              </span>
+              <div className="inline-flex rounded-xl p-1 bg-white border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setModoDiferenciado(false)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    !modoDiferenciado
+                      ? 'bg-emerald-100 text-cancha-900'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tarifa única (16:00–23:00)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoDiferenciado(true)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    modoDiferenciado
+                      ? 'bg-emerald-100 text-cancha-900'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Diurna / Nocturna
+                </button>
+              </div>
+            </div>
+
+            {!modoDiferenciado ? (
+              <div className="space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div className="flex-1">
+                    <label
+                      htmlFor="input-tarifa-unica"
+                      className="block text-xs font-extrabold text-slate-700 mb-1"
+                    >
+                      Precio por hora (₡ Colones) — Todas las franjas (16:00 a 23:00)
+                    </label>
+                    <input
+                      id="input-tarifa-unica"
+                      type="number"
+                      min={1000}
+                      max={250000}
+                      step={500}
+                      required
+                      value={tarifaHoraInput}
+                      onChange={(e) => setTarifaHoraInput(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-extrabold text-slate-900 focus:outline-none focus:border-cancha-700"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[12000, 14000, 15000, 16000, 18000, 20000].map((monto) => (
+                      <button
+                        key={monto}
+                        type="button"
+                        onClick={() => setTarifaHoraInput(monto)}
+                        className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                          Number(tarifaHoraInput) === monto
+                            ? 'bg-emerald-100 text-cancha-950 border-cancha-700'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {formatColones(monto)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label
+                    htmlFor="input-tarifa-diurna"
+                    className="block text-xs font-extrabold text-slate-700 mb-1"
+                  >
+                    Tarifa Diurna (16:00 a 18:00) — ₡ Colones
+                  </label>
+                  <input
+                    id="input-tarifa-diurna"
+                    type="number"
+                    min={1000}
+                    max={250000}
+                    step={500}
+                    required
+                    value={tarifaDiurnaInput}
+                    onChange={(e) => setTarifaDiurnaInput(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-extrabold text-slate-900 focus:outline-none focus:border-cancha-700"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="input-tarifa-nocturna"
+                    className="block text-xs font-extrabold text-slate-700 mb-1"
+                  >
+                    Tarifa Nocturna con Luz LED (18:00 a 23:00) — ₡ Colones
+                  </label>
+                  <input
+                    id="input-tarifa-nocturna"
+                    type="number"
+                    min={1000}
+                    max={250000}
+                    step={500}
+                    required
+                    value={tarifaNocturnaInput}
+                    onChange={(e) => setTarifaNocturnaInput(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-extrabold text-slate-900 focus:outline-none focus:border-cancha-700"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <p className="text-[11px] text-slate-500">
+                El nuevo precio se aplicará de inmediato en el calendario público, formulario de reserva y Cloudflare D1.
+              </p>
+              <button
+                type="submit"
+                disabled={guardandoTarifa}
+                className="px-5 py-2.5 rounded-xl bg-cancha-800 hover:bg-cancha-900 disabled:opacity-60 text-white font-extrabold text-xs sm:text-sm shadow-sm transition-colors"
+              >
+                {guardandoTarifa ? 'Actualizando precio...' : 'Guardar nuevo precio'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* =================================================================== */}
