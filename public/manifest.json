@@ -1,6 +1,6 @@
 {
-  "name": "CanchaApp — Sistema de Reservas Cancha Sintética Venecia",
-  "short_name": "CanchaApp Venecia",
+  "name": "ADIV Cancha — Sistema de Reservas Cancha Sintética Venecia",
+  "short_name": "ADIV Cancha",
   "description": "Plataforma comunitaria de reserva de turnos en tiempo real y control financiero Efectivo/SINPE para la Cancha Sintética de Venecia de San Carlos.",
   "start_url": "./index.html",
   "display": "standalone",

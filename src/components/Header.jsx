@@ -151,7 +151,7 @@ export default function Header() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg sm:text-xl font-extrabold tracking-tight text-cancha-900">
-                CanchaApp
+                ADIV Cancha
               </span>
               <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-cancha-800 border border-emerald-200">
                 {tarifaLabel}

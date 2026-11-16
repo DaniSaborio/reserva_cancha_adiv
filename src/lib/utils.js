@@ -143,7 +143,7 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
       : `SINPE Móvil: ${cancha?.sinpe_oficial || '8888-9999'} (${cancha?.sinpe_titular || 'Cancha Venecia'}) indicando "${reserva.codigo_reserva}" en el detalle.`;
 
   const texto = [
-    `*CanchaApp — Venecia*`,
+    `*ADIV Cancha — Venecia*`,
     `¡Horario reservado para jugar!`,
     ``,
     `*Código:* ${reserva.codigo_reserva}`,

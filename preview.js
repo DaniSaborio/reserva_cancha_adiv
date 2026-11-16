@@ -757,7 +757,7 @@ let currentPort = parseInt(process.env.PORT, 10) || 3000;
 
 function startServer(port) {
   server.listen(port, () => {
-    console.log(`\n  ▲ CanchaApp — Servidor Estático + Workers API Local (Cloudflare Pages + D1 Preview)`);
+    console.log(`\n  ▲ ADIV Cancha — Servidor Estático + Workers API Local (Cloudflare Pages + D1 Preview)`);
     console.log(`  - Local:   http://localhost:${port}`);
     console.log(`  - API D1:  http://localhost:${port}/api/disponibilidad?fecha=2026-11-06`);
     console.log(`  - Seguridad: Cabeceras OWASP Top 10:2025 activas`);
