@@ -91,6 +91,7 @@ export function formatRangoHora12(horaInicio, horaFin) {
 export function getAhoraCostaRica() {
   try {
     const now = new Date();
+    // hourCycle: 'h23' garantiza rango estricto 00-23 en WebKit / Safari
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Costa_Rica',
       year: 'numeric',
@@ -98,7 +99,8 @@ export function getAhoraCostaRica() {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
+      hourCycle: 'h23'
     }).formatToParts(now);
     const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
     const hourNum = Number(map.hour) === 24 ? 0 : Number(map.hour);
@@ -135,7 +137,7 @@ export function esFranjaPasada(fechaISO, horaInicio, ahoraCR = getAhoraCostaRica
 }
 
 export function generarEnlaceWhatsApp(reserva, cancha) {
-  if (!reserva) return 'https://wa.me/';
+  if (!reserva) return 'https://api.whatsapp.com/send';
   const estadoPago = reserva.estado === 'Confirmada' ? 'Pago verificado y confirmado' : 'Pendiente de verificación';
   const instrucciones =
     reserva.metodo_pago_previsto === 'Efectivo'
@@ -160,12 +162,15 @@ export function generarEnlaceWhatsApp(reserva, cancha) {
     .filter((line) => line !== null)
     .join('\n');
 
-  return `https://wa.me/?text=${encodeURIComponent(texto)}`;
+  // api.whatsapp.com/send es compatible con Safari en iOS sin provocar alertas de redirección inválida
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
 }
 
 export function getFechaHoyISO() {
   try {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' });
+    const cr = getAhoraCostaRica();
+    if (cr?.fechaISO) return cr.fechaISO;
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' }).replace(/[^0-9-]/g, '');
   } catch {
     return new Date().toISOString().slice(0, 10);
   }

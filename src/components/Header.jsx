@@ -98,7 +98,10 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
       {/* Barra superior institucional estilo CanchaApp */}
-      <div className="bg-cancha-900 text-emerald-100 px-4 py-1.5 text-[11px] font-semibold">
+      <div
+        style={{ paddingTop: 'calc(0.375rem + env(safe-area-inset-top, 0px))' }}
+        className="bg-cancha-900 text-emerald-100 px-4 pb-1.5 text-[11px] font-semibold"
+      >
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {isOnline ? (

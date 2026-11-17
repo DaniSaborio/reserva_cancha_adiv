@@ -40,7 +40,14 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg sm:max-w-lg sm:mx-auto sm:rounded-t-2xl no-print">
+    <nav
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(12px)'
+      }}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg sm:max-w-lg sm:mx-auto sm:rounded-t-2xl no-print"
+    >
       <div className="flex justify-around items-center h-16 px-1">
         {navItems.map((item) => {
           const Icon = item.icon;

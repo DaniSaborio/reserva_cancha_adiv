@@ -2,19 +2,34 @@
   "name": "ADIV Cancha — Sistema de Reservas Cancha Sintética Venecia",
   "short_name": "ADIV Cancha",
   "description": "Plataforma comunitaria de reserva de turnos en tiempo real y control financiero Efectivo/SINPE para la Cancha Sintética de Venecia de San Carlos.",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#F5F6F3",
   "theme_color": "#0B4F35",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "./icons/icon-192.svg",
+      "src": "/icons/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/icons/icon-192.svg",
       "type": "image/svg+xml",
       "sizes": "192x192"
     },
     {
-      "src": "./icons/icon-512.svg",
+      "src": "/icons/icon-512.svg",
       "type": "image/svg+xml",
       "sizes": "512x512"
     }

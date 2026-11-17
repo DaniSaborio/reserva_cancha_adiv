@@ -69,12 +69,51 @@ export default function VoucherClient({ initialCodigo = '' }) {
     });
   }, [initialCodigo]);
 
-  const handleCopiarCodigo = () => {
+  const handleCopiarCodigo = async () => {
     if (!detalle?.reserva) return;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(detalle.reserva.codigo_reserva);
+    const codigo = detalle.reserva.codigo_reserva;
+    let copiadoExitoso = false;
+
+    // Intento 1: API moderna navigator.clipboard (si está disponible y en contexto seguro)
+    if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(codigo);
+        copiadoExitoso = true;
+      } catch {
+        copiadoExitoso = false;
+      }
+    }
+
+    // Intento 2: Fallback sincrónico document.execCommand para Safari en iOS, HTTP local y WebViews
+    if (!copiadoExitoso && typeof document !== 'undefined') {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = codigo;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.width = '2em';
+        textArea.style.height = '2em';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+        textArea.style.background = 'transparent';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, 99999);
+        copiadoExitoso = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch {
+        copiadoExitoso = false;
+      }
+    }
+
+    if (copiadoExitoso) {
       setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
+      setTimeout(() => setCopiado(false), 2500);
     }
   };
 

@@ -85,7 +85,8 @@ export default function AdminReportesPage() {
 
   const handleDescargarCSV = () => {
     const csvContent = DashboardController.exportarReporteCSV({ desde, hasta });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // UTF-8 BOM (\uFEFF) para compatibilidad con Safari, macOS Numbers y Microsoft Excel
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -93,7 +94,10 @@ export default function AdminReportesPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // En Safari, revocar inmediatamente aborta la descarga; usar un timeout seguro
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1500);
   };
 
   return (

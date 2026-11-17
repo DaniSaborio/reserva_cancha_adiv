@@ -76,6 +76,10 @@ export default function PromoPortalMigrante() {
       <aside
         role="region"
         aria-label="Iniciativa comunitaria Portal de Información Migrante"
+        style={{
+          WebkitBackdropFilter: 'blur(12px)',
+          backdropFilter: 'blur(12px)'
+        }}
         className={`relative bg-white/95 backdrop-blur-md bg-gradient-to-r from-sky-50/95 via-white to-emerald-50/80 rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 border border-sky-200/90 shadow-md ring-1 ring-sky-500/10 transition-all duration-300 ease-out ${
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
         }`}

@@ -12,6 +12,9 @@ body.font-large {
 
 html {
   font-size: var(--font-scale);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -19,7 +22,52 @@ body {
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  padding-bottom: 5.5rem;
+  min-height: 100dvh;
+  /* Espacio inferior que respeta la barra fija y el indicador de inicio de iPhone (safe-area) */
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Compatibilidad Safari WebKit para filtros difuminados (Frosted Glass) */
+.backdrop-blur,
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg,
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* Desplazamiento táctil fluido e inercia en Safari iOS */
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevenir auto-zoom no deseado en Safari iOS cuando los campos reciben foco */
+@media screen and (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Normalización de inputs de fecha y hora para Safari WebKit */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  line-height: inherit;
+  min-height: 1.4em;
+}
+
+/* Estilos táctiles para Safari iOS según Apple HIG (mínimo de retardo y manipulación táctil directa) */
+button,
+a[role="button"],
+input[type="button"],
+input[type="submit"] {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Modo alto contraste accesible */
